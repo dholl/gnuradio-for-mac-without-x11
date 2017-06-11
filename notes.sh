@@ -91,7 +91,10 @@ fi
 
 # My idea: Naw, I won't mess up PATH for this, just to see if anything breaks.
 #export PATH="${app_dir}/Contents/Resources/bin:$PATH"
-
+# Instead, we'll define our own port function to only tweak PATH as needed:
+port () {
+	PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" "$@"
+}
 
 # WORK AROUND this bug:
 #--->  Building openjade
@@ -185,7 +188,7 @@ fi
 
 need_upgrade_outdated=''
 if test "$(( current_time-update_time > 20*60*60))" -eq "1" ; then
-	PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" selfupdate
+	port selfupdate
 	need_upgrade_outdated='yep'
 fi
 
@@ -221,49 +224,51 @@ EOF
 fi
 
 if test -n "${need_upgrade_outdated}" ; then
-	PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" -u upgrade outdated || true
+	port -u upgrade outdated || true
 	touch "${tmp_dir}/.update_time"
 fi
 unset need_upgrade_outdated
 
-#if fgrep -q '\"/bin/ps\"' "${app_dir}/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl" ; then
-#	printf '/bin/ps is already in %s\n' "${app_dir}/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl"
-#else
-#	printf 'Adding /bin/ps to %s\n' "${app_dir}/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl"
-#	patch --forward -p3 << 'EOF'
-#diff -ruN GNURadio.app.old/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl GNURadio.app.new/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl
-#--- GNURadio.app.old/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl	2017-02-26 04:25:13.000000000 -0800
-#+++ GNURadio.app.new/Contents/Resources/var/macports/sources/rsync.macports.org/macports/release/tarballs/base/src/port1.0/portsandbox.tcl	2017-06-09 18:39:09.000000000 -0700
-#@@ -87,6 +87,8 @@
-# (regex #\"^/dev/fd/\")) (allow file-write* \
-# (regex #\"^(/private)?(/var)?/tmp/\" #\"^(/private)?/var/folders/\"))"
-# 
-#+    append portsandbox_profile " (allow process-exec (literal \"/bin/ps\") (with no-sandbox))"
-#+
-#     foreach dir $allow_dirs {
-#         append portsandbox_profile " (allow file-write* ("
-#         if {${os.major} > 9} {
-#EOF
-#fi
-# -----------------------------------------------------------
-
-# This takes a long time:  TODO: run clean --all all when we detect the script had been aborted.  (touch a .dirty file in tmp which we remove upon clean exit?)
-#PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" -f clean --all all
-#PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" -f uninstall inactive
+# This didn't fix volk:
+##### # And another fix for volk:
+##### get_macports_python () {
+##### 	port select --list python | grep '[[:space:]](active)[[:space:]]*$' | sed -e 's_[[:space:]]*(active)[[:space:]]*$__' -e 's_^[[:space:]]*__'
+##### }
+##### if test "none" = "$(get_macports_python)" ; then
+##### 	printf 'Found "none" selected for python.\n'
+##### 	available_pythons="$( port select --list python 2>/dev/null | grep '^[[:space:]]' | sed -E -e 's_^[[:space:]]*__' -e 's_([[:space:]].*)?$__' | grep -v -- '-apple$' | grep -v '^none$' || true ; echo x )"
+##### 	# I added a trailing x to keep $( ) from eating last newline from port select --list.
+##### 	# Now we'll remove trailing x:
+##### 	available_pythons="${available_pythons%?}"
+##### 	# Now ${available_pythons} is a newline-separated array.
+##### 	if test "0" -eq "$( printf '%s' "${available_pythons:-''}" | wc -l )" ; then
+##### 		printf 'No available python versions.  Installing python27...\n'
+##### 		port install python27
+##### 		port unsetrequested python27
+##### 		selected_python="python27"
+##### 	else
+##### 		printf 'Found these candidate python ports:\n--------\n%s--------\n' "${available_pythons}"
+##### 		selected_python=$( printf '%s' "${available_pythons}" | head -n 1 )
+##### 	fi
+##### 	printf 'Selecting python "%s"...\n' "${selected_python}"
+##### 	port select --set python "${selected_python}"
+##### 	unset selected_python
+##### 	unset available_pythons
+##### fi
 
 
 # libmirisdr ?
 port_names="gnuradio hackrf bladeRF airspy rtl-sdr gr-osmosdr"
 port_names_to_install=""
 for port_name in ${port_names} ; do
-	if test "$(PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" -q contents "${port_name}" | wc -l)" -eq "0" ; then
+	if test "$(port -q contents "${port_name}" | wc -l)" -eq "0" ; then
 		port_names_to_install="${port_names_to_install-}${port_names_to_install:+" "}${port_name}"
 	fi
 done
 unset port_name
 printf 'port_names_to_install=%s\n' "${port_names_to_install}"
 if [ -n "${port_names_to_install}" ]; then
-	PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/port" -N -s install ${port_names_to_install}
+	port -N -s install ${port_names_to_install}
 fi
 unset port_names_to_install
 #py27-cairo has the following notes:
@@ -274,6 +279,21 @@ unset port_names_to_install
 rm "${lapp_dir}"
 # END OF WORK AROUND
 
+# Do some cleaning:
+until test "0" -eq "$(port echo inactive | wc -l)" ; do
+	printf 'Uninstalling inactive ports:\n'
+	port echo inactive
+	port uninstall inactive
+done
+until test "0" -eq "$(port echo leaves | wc -l)" ; do
+	printf 'Uninstalling leaf ports:\n'
+	port echo leaves
+	port uninstall leaves
+done
+# This takes a long time:  TODO: run clean --all all when we detect the script had been aborted.  (touch a .dirty file in tmp which we remove upon clean exit?)
+#port clean --all all
+
+# TODO:
 # "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
 # "${main_src_dir}/fix-symbolic-links" "${app_dir}/Contents"
 
