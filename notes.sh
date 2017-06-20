@@ -294,7 +294,7 @@ port clean -q --all installed
 #	  coreutils has the following notes:
 #	    The tools provided by GNU coreutils are prefixed with the character 'g' by default to distinguish them from the BSD commands.
 #	    For example, cp becomes gcp and ls becomes gls.
-#	    
+#
 #	    If you want to use the GNU tools by default, add this directory to the front of your PATH environment variable:
 #	        /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/libexec/gnubin/
 #	  dbus has the following notes:
@@ -308,8 +308,8 @@ port clean -q --all installed
 #	    ############################################################################
 #	  py27-sphinx has the following notes:
 #	    To make the Python 2.7 version of Sphinx the one that is run when you execute the commands without a version suffix, e.g. 'sphinx-build', run:
-#	    
+#
 #	    port select --set sphinx py27-sphinx
 #	zsh: exit 1     ./notes.sh
-#	zero(ttys008):...ith-macports> 
+#	zero(ttys008):...ith-macports>
 
