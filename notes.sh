@@ -255,18 +255,26 @@ rm "${lapp_dir}"
 # END OF WORK AROUND
 
 # Do some cleaning:
-until test "0" -eq "$(port echo inactive | wc -l)" ; do
-	printf 'Uninstalling inactive ports:\n'
-	port echo inactive
-	port uninstall inactive
+need_more_cleaning=1
+until test "0" -eq "${need_more_cleaning}" ; do
+	need_more_cleaning=0
+	until test "0" -eq "$(port echo inactive | wc -l)" ; do
+		need_more_cleaning=1
+		printf 'Uninstalling inactive ports:\n'
+		port echo inactive
+		port uninstall inactive
+	done
+	until test "0" -eq "$(port echo leaves | wc -l)" ; do
+		need_more_cleaning=1
+		printf 'Uninstalling leaf ports:\n'
+		port echo leaves
+		port uninstall leaves
+	done
 done
-until test "0" -eq "$(port echo leaves | wc -l)" ; do
-	printf 'Uninstalling leaf ports:\n'
-	port echo leaves
-	port uninstall leaves
-done
+unset -v need_more_cleaning
 # This takes a long time:  TODO: run clean --all all when we detect the script had been aborted.  (touch a .dirty file in tmp which we remove upon clean exit?)
 #port clean --all all
+port clean -q --all installed
 
 # TODO:
 # "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
