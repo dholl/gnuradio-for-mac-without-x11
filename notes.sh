@@ -226,7 +226,7 @@ EOF
 fi
 
 if test -n "${need_upgrade_outdated}" ; then
-	port -u upgrade outdated || true
+	port -s -u upgrade outdated || true
 	touch "${tmp_dir}/.update_time"
 fi
 unset need_upgrade_outdated
