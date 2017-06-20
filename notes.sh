@@ -71,8 +71,10 @@ if ! test -e "${tmp_dir}/.macports-base.installed" ; then
 	# Yeah, GNURadio.app/Contents/Applications is a pretty stupid location.  Will macports actually put anything in there?
 	"${tmp_dir}/macports-base/configure" --enable-shared --with-unsupported-prefix --with-no-root-privileges \
 		--prefix="${app_dir}/Contents/Resources" \
-		--with-applications-dir="${app_dir}/Contents/Applications" \
-		--with-frameworks-dir="${app_dir}/Contents/Frameworks"
+		--with-applications-dir="${app_dir}/Contents/Applications"
+	# Must use --with-applications-dir=... or it'll put stuff in ${HOME}/Applications/MacPorts
+	# Fix for volk: Don't use --with-frameworks-dir=...
+	#	--with-frameworks-dir="${app_dir}/Contents/Frameworks"
 	make -j"$(sysctl -n hw.ncpu)"
 	make install
 	)
@@ -228,33 +230,6 @@ if test -n "${need_upgrade_outdated}" ; then
 	touch "${tmp_dir}/.update_time"
 fi
 unset need_upgrade_outdated
-
-# This didn't fix volk:
-##### # And another fix for volk:
-##### get_macports_python () {
-##### 	port select --list python | grep '[[:space:]](active)[[:space:]]*$' | sed -e 's_[[:space:]]*(active)[[:space:]]*$__' -e 's_^[[:space:]]*__'
-##### }
-##### if test "none" = "$(get_macports_python)" ; then
-##### 	printf 'Found "none" selected for python.\n'
-##### 	available_pythons="$( port select --list python 2>/dev/null | grep '^[[:space:]]' | sed -E -e 's_^[[:space:]]*__' -e 's_([[:space:]].*)?$__' | grep -v -- '-apple$' | grep -v '^none$' || true ; echo x )"
-##### 	# I added a trailing x to keep $( ) from eating last newline from port select --list.
-##### 	# Now we'll remove trailing x:
-##### 	available_pythons="${available_pythons%?}"
-##### 	# Now ${available_pythons} is a newline-separated array.
-##### 	if test "0" -eq "$( printf '%s' "${available_pythons:-''}" | wc -l )" ; then
-##### 		printf 'No available python versions.  Installing python27...\n'
-##### 		port install python27
-##### 		port unsetrequested python27
-##### 		selected_python="python27"
-##### 	else
-##### 		printf 'Found these candidate python ports:\n--------\n%s--------\n' "${available_pythons}"
-##### 		selected_python=$( printf '%s' "${available_pythons}" | head -n 1 )
-##### 	fi
-##### 	printf 'Selecting python "%s"...\n' "${selected_python}"
-##### 	port select --set python "${selected_python}"
-##### 	unset selected_python
-##### 	unset available_pythons
-##### fi
 
 
 # libmirisdr ?
