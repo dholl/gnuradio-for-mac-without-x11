@@ -71,7 +71,7 @@ if ! test -e "${tmp_dir}/.macports-base.installed" ; then
 	# Yeah, GNURadio.app/Contents/Applications is a pretty stupid location.  Will macports actually put anything in there?
 	"${tmp_dir}/macports-base/configure" --enable-shared --with-unsupported-prefix --with-no-root-privileges \
 		--prefix="${app_dir}/Contents/Resources" \
-		--with-applications-dir="${app_dir}/Contents/Applications"
+		--with-applications-dir="${app_dir}/Contents/Resources/Applications"
 	# Must use --with-applications-dir=... or it'll put stuff in ${HOME}/Applications/MacPorts
 	# Fix for volk: Don't use --with-frameworks-dir=...
 	#	--with-frameworks-dir="${app_dir}/Contents/Frameworks"
