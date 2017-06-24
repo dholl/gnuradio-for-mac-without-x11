@@ -82,7 +82,7 @@ if ! test -e "${tmp_dir}/.macports-base.installed" ; then
 	touch "${tmp_dir}/.macports-base.installed"
 
 	# Save some space:
-	rm -rf "${tmp_dir}/macports-base"
+	rm -rf "${tmp_dir}/macports-base" "${tmp_dir}/macports-base.git"
 fi
 
 # Congratulations, you have successfully installed the MacPorts system. To get
