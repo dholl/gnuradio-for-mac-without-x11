@@ -123,7 +123,7 @@ port_clean() {
 	port clean -q --all installed
 }
 
-# WORK AROUND this bug:
+# openjade WORK AROUND this bug:
 #--->  Building openjade
 #Error: Failed to build openjade: command execution failed
 #Error: See /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/var/macports/logs/_Users_dholl_Desktop_Installers_gnuradio-for-mac-with-macports_GNURadio.app_Contents_Resources_var_macports_sources_rsync.macports.org_macports_release_tarballs_ports_textproc_openjade/openjade/main.log for details.
@@ -133,15 +133,20 @@ port_clean() {
 lapp_dir="$(printf '%s' "${app_dir}" | sed -e 's/.app/.lapp/g' && printf 'x\n')"
 lapp_dir="${lapp_dir%??}"
 if test -L "${lapp_dir}" ; then
-	rm "${lapp_dir}"
+	if test "${app_dir}" -ef "${lapp_dir}" ; then
+		printf 'Using existing symbolic link %s for openjade work around.\n' "${lapp_dir}"
+		# Unsetting lapp_dir will prevent us from trying to delete it later.
+		unset -v lapp_dir
+	fi
 fi
-if ! test -e "${lapp_dir}" ; then
-	ln -s "${app_dir}" "${lapp_dir}"
+if test -n "${lapp_dir-''}" ; then
+	if test -e "${lapp_dir-''}" ; then
+		# We found something.  Try to remove it.  But don't try too hard.
+		rm "${lapp_dir-''}"
+	fi
+	ln -s "${app_dir}" "${lapp_dir-''}"
 fi
-if ! test -L "${lapp_dir}" ; then
-	printf 'Failed to create symbolic link at %s\n' "${lapp_dir}"
-fi
-# END OF WORK AROUND
+# END OF openjade WORK AROUND
 
 if ! test -e "${tmp_dir}/.macports.conf.installed" ; then
 	(
@@ -275,9 +280,9 @@ unset -v port_names_to_install
 #	Make sure cairo is installed with the +x11 variant when installing the binary version of py27-cairo or install py27-cairo from source like so:
 #		sudo port install -s py27-cairo
 
-# WORK AROUND
-rm "${lapp_dir}"
-# END OF WORK AROUND
+# openjade WORK AROUND
+test -z "${lapp_dir-''}" || rm "${lapp_dir-''}"
+# END OF openjade WORK AROUND
 
 # Minimize how much junk that the fix-* scripts will sift through.
 port_clean
