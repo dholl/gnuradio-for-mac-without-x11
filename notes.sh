@@ -207,22 +207,84 @@ if ! test -e "${tmp_dir}/.macports.variants.installed" ; then
 	touch "${tmp_dir}/.macports.variants.installed"
 fi
 
-# TODO: Only run this if we haven't done it in 20 hours:
-# One way to get file mod time: echo $(eval "$(stat -s GIMPskel.url)" ; echo $st_mtime)
-touch "${tmp_dir}/.current_time"
-current_time="$(eval "$(stat -s "${tmp_dir}/.current_time")" ; echo $st_mtime)"
-rm -f "${tmp_dir}/.current_time"
-if test -e "${tmp_dir}/.update_time" ; then
-	update_time="$(eval "$(stat -s "${tmp_dir}/.update_time")" ; echo $st_mtime)"
-else
-	update_time=0
+# GNURadio.app/Contents/Resources/var/macports/sources should already
+# exist, but we want to create .../github.com-ports too:
+if ! test -e "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" ; then
+	printf 'Fetching ports tree over git...\n'
+	test -e "${app_dir}/Contents/Resources/var/macports/sources" || mkdir -v "${app_dir}/Contents/Resources/var/macports/sources"
+	if ! git clone https://github.com/macports/macports-ports.git "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" ; then
+		st=$?
+		rm -rf "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports"
+		printf 'git clone failed with status %s\n' "${st}" 1>&2
+		exit 1
+	fi
+	# Delete .ports_rev_last to force portindex to run:
+	test ! -e "${tmp_dir}/.ports_rev_last" || rm "${tmp_dir}/.ports_rev_last"
+fi
+if grep -q '^rsync' "${app_dir}/Contents/Resources/etc/macports/sources.conf" ; then
+	printf 'Configuring sources.conf...\n'
+	sed -i orig -e 's/^rsync/#&/' "${app_dir}/Contents/Resources/etc/macports/sources.conf"
+	printf 'file://%s/ [default]\n' "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" >> "${app_dir}/Contents/Resources/etc/macports/sources.conf"
 fi
 
-if test "$(( current_time-update_time > 20*60*60))" -eq "1" ; then
-	port selfupdate
-	port -s -u upgrade outdated || true
-	touch "${tmp_dir}/.update_time"
+# py27-gobject failes to compile due to https://trac.macports.org/ticket/53911
+#
+# Rather than wait for patches to py27-gobject, we'll just use a copy of
+# the ports tree from just before the glib update, borrowing some tactics
+# from https://trac.macports.org/wiki/howto/SyncingWithGit
+#
+# Make sure we're locked at a known-working ports tree:
+ports_rev_req="ff6ce7fa929ede0751f8dfc08e1c7da937c7956e"
+# Or leave ports_rev_req unset to update to the latest.
+
+if test -n "${ports_rev_req-''}" ; then
+	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" pull
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "${ports_rev_req}"
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" gc
+		# Delete .ports_rev_last to force portindex to run:
+		test ! -e "${tmp_dir}/.ports_rev_last" || rm "${tmp_dir}/.ports_rev_last"
+		if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
+			printf 'Failed to confirm ports tree at revision %s\n' "${ports_rev_req}" 1>&2
+			exit 1
+		fi
+	fi
 fi
+
+# Run "port selfupdate" if we haven't done it in 20 hours, or if the current
+# git revision of the ports tree has changed:
+touch "${tmp_dir}/.current_time"
+current_time="$(eval "$(stat -s "${tmp_dir}/.current_time")" ; printf '%s\n' "${st_mtime}")"
+rm "${tmp_dir}/.current_time"
+if test -e "${tmp_dir}/.ports_rev_last" ; then
+	update_time="$(eval "$(stat -s "${tmp_dir}/.ports_rev_last")" ; printf '%s\n' "${st_mtime}")"
+	ports_rev_last="$( cat "${tmp_dir}/.ports_rev_last" )"
+else
+	update_time=0
+	ports_rev_last=''
+fi
+ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
+if test "$(( current_time-update_time > 20*60*60))" -eq "1" -o "x${ports_rev_cur}" != "x${ports_rev_last}"; then
+	if test -n "${ports_rev_req-''}" ; then
+		port selfupdate --nosync # Don't try to sync ports tree, since we're locking the git revision.
+		# Don't run "port -v sync", because that would attempt to run "git pull --rebase --autostash".
+		# Here, just update the local index:
+		PATH="${app_dir}/Contents/Resources/bin:$PATH" "${app_dir}/Contents/Resources/bin/portindex" "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports"
+	else
+		port selfupdate
+	fi
+fi
+
+ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
+# Check this _after_ "port selfupdate" stuff, to verify that the ports tree wasn't accidentally changed.
+if test -n "${ports_rev_req-''}" -a "x${ports_rev_req}" != "x${ports_rev_cur}" ; then
+	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req}"
+fi
+if test "x${ports_rev_cur}" != "x${ports_rev_last}" ; then
+	port -s -u upgrade outdated || true
+	printf '%s\n' "${ports_rev_cur}" > "${tmp_dir}/.ports_rev_last"
+fi
+unset -v ports_rev_cur
 
 
 # libmirisdr ?
