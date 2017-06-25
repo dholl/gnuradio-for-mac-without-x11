@@ -267,7 +267,7 @@ port_names="gnuradio hackrf bladeRF airspy rtl-sdr gr-osmosdr"
 port_names_to_install=""
 for port_name in ${port_names} ; do
 	if test "$(port -q contents "${port_name}" | wc -l)" -eq "0" ; then
-		port_names_to_install="${port_names_to_install-}${port_names_to_install:+" "}${port_name}"
+		port_names_to_install="${port_names_to_install-''}${port_names_to_install:+" "}${port_name}"
 	fi
 done
 unset -v port_name
