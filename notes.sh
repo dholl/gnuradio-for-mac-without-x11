@@ -218,48 +218,11 @@ else
 	update_time=0
 fi
 
-need_upgrade_outdated=''
 if test "$(( current_time-update_time > 20*60*60))" -eq "1" ; then
 	port selfupdate
-	need_upgrade_outdated='yep'
-fi
-
-# -----------------------------------------------------------
-# Fix for volk port needing to run /bin/ps which is setuid and thus blocked by
-# the sandbox:  We'll open the sandbox a little.
-# https://github.com/Homebrew/brew/blob/master/Library/Homebrew/sandbox.rb
-#
-#	--->  Configuring volk
-#	Error: Failed to configure volk: configure failure: command execution failed
-#	Error: See /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/var/macports/logs/_Users_dholl_Desktop_Installers_gnuradio-for-mac-with-macports_GNURadio.app_Contents_Resources_var_macports_sources_rsync.macports.org_macports_release_tarballs_ports_science_volk/volk/main.log for details.
-#	Error: Follow https://guide.macports.org/#project.tickets to report a bug.
-#	Error: Processing of port gnuradio failed
-cd "${app_dir}/Contents/Resources"
-if fgrep -q '\"/bin/ps\"' "${app_dir}/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl" ; then
-	printf '/bin/ps is already in %s\n' "${app_dir}/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl"
-else
-	printf 'Adding /bin/ps to %s ...\n' "${app_dir}/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl"
-	patch --forward -p3 "${app_dir}/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl" << 'EOF'
-diff -ruN GNURadio.app.old/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl GNURadio.app.new/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl
---- GNURadio.app.old/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl	2017-06-07 00:26:39.000000000 -0700
-+++ GNURadio.app.new/Contents/Resources/libexec/macports/lib/port1.0/portsandbox.tcl	2017-06-09 18:38:58.000000000 -0700
-@@ -87,6 +87,8 @@
- (regex #\"^/dev/fd/\")) (allow file-write* \
- (regex #\"^(/private)?(/var)?/tmp/\" #\"^(/private)?/var/folders/\"))"
- 
-+    append portsandbox_profile " (allow process-exec (literal \"/bin/ps\") (with no-sandbox))"
-+
-     foreach dir $allow_dirs {
-         append portsandbox_profile " (allow file-write* ("
-         if {${os.major} > 9} {
-EOF
-fi
-
-if test -n "${need_upgrade_outdated}" ; then
 	port -s -u upgrade outdated || true
 	touch "${tmp_dir}/.update_time"
 fi
-unset -v ports_rev_cur
 
 
 # libmirisdr ?
