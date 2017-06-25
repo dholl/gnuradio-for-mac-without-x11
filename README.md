@@ -1,0 +1,2 @@
+# gnuradio-for-mac-without-x11
+This repo is based upon the work of cfriedt/gnuradio-for-mac-without-macports, with the notable difference that MacPorts *is* used.  However, the resulting /Applications/GNURadio.app bundle is independent of any existing MacPorts installation.  The upside is that we leverage all the patches and pre-packaging from MacPorts, and this bundle should not require XQuartz during execution.
