@@ -8,8 +8,8 @@ pkgbase=/pkg
 . ~/Desktop/ad5ey/profile.d/_pkg.sh
 pkgbase=~/.pkg
 . ~/Desktop/ad5ey/profile.d/_pkg.sh
-unset pkgbase
-unset pkgbase_clean_only
+unset -v pkgbase
+unset -v pkgbase_clean_only
 
 # Figure out where this script is located:
 # If $0 starts with / then it is an absolute path.
@@ -254,7 +254,7 @@ if test -n "${need_upgrade_outdated}" ; then
 	port -s -u upgrade outdated || true
 	touch "${tmp_dir}/.update_time"
 fi
-unset need_upgrade_outdated
+unset -v ports_rev_cur
 
 
 # libmirisdr ?
@@ -265,12 +265,12 @@ for port_name in ${port_names} ; do
 		port_names_to_install="${port_names_to_install-}${port_names_to_install:+" "}${port_name}"
 	fi
 done
-unset port_name
+unset -v port_name
 printf 'port_names_to_install=%s\n' "${port_names_to_install}"
 if [ -n "${port_names_to_install}" ]; then
 	port -N -s install ${port_names_to_install}
 fi
-unset port_names_to_install
+unset -v port_names_to_install
 #py27-cairo has the following notes:
 #	Make sure cairo is installed with the +x11 variant when installing the binary version of py27-cairo or install py27-cairo from source like so:
 #		sudo port install -s py27-cairo
