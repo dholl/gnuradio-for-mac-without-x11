@@ -239,8 +239,11 @@ ports_rev_req="ff6ce7fa929ede0751f8dfc08e1c7da937c7956e"
 
 if test -n "${ports_rev_req-''}" ; then
 	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
+		printf 'ports tree: git pull ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" pull
+		printf 'ports tree: git reset --hard %s ...\n' "${ports_rev_req}"
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "${ports_rev_req}"
+		printf 'ports tree: git gc ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" gc
 		# Delete .ports_rev_last to force portindex to run:
 		test ! -e "${tmp_dir}/.ports_rev_last" || rm "${tmp_dir}/.ports_rev_last"
