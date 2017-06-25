@@ -2,15 +2,6 @@
 set -e
 set -u
 
-# Start with clean environment:
-pkgbase_clean_only=1
-pkgbase=/pkg
-. ~/Desktop/ad5ey/profile.d/_pkg.sh
-pkgbase=~/.pkg
-. ~/Desktop/ad5ey/profile.d/_pkg.sh
-unset -v pkgbase
-unset -v pkgbase_clean_only
-
 # Figure out where this script is located:
 # If $0 starts with / then it is an absolute path.
 # If not, then we'll prepend $PWD:
