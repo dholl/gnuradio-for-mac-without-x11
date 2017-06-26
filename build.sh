@@ -121,21 +121,32 @@ port_clean() {
 #Error: Follow https://guide.macports.org/#project.tickets to report a bug.
 #Error: Processing of port gnuradio failed
 #:info:build make[2]: *** No rule to make target `/Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.lapp/Contents/Resources/lib/libosp.dylib', needed by `openjade'.  Stop.
-lapp_dir="$(printf '%s' "${app_dir}" | sed -e 's/.app/.lapp/g' && printf 'x\n')"
+# Note how the :info: message above mentions .../GNURadio.lapp/...  I speculate
+# that something during openjade's build is trying to replace .a with .la such
+# as for static library stuff.  The downside is this turns our GNURadio.app
+# into GNURadio.lapp.  So here, we'll patch it with a symlink:
+lapp_dir="$(printf '%s\n' "${app_dir}" | sed -e 's/\.a/\.la/g' && printf 'x\n')"
 lapp_dir="${lapp_dir%??}"
 if test -L "${lapp_dir}" ; then
 	if test "${app_dir}" -ef "${lapp_dir}" ; then
-		printf 'Using existing symbolic link %s for openjade work around.\n' "${lapp_dir}"
-		# Unsetting lapp_dir will prevent us from trying to delete it later.
-		unset -v lapp_dir
+		printf 'openjade WORK AROUND: Using existing symbolic link %s\n' "${lapp_dir}"
+		# Clearing lapp_dir will prevent us from trying to delete it later, in
+		# case the target directory such as /Applications is not normally
+		# writable by the user, and they only temporarilly used sudo or "su -
+		# admin" to manually create the link for us.
+		lapp_dir=''
+	else
+		printf 'openjade WORK AROUND: Removing old symbolic link %s\n' "${lapp_dir}"
+		rm "${lapp_dir}"
+		printf 'openjade WORK AROUND: Creating symbolic link %s\n' "${lapp_dir}"
+		if ! ln -s "${app_dir}" "${lapp_dir}" ; then
+			printf 'openjade WORK AROUND: Failed to create symbolic link %s\nPlease use an account with sufficient privileges to execute:\n\tln -s "%s" "%s"\n' "${app_dir}" "${lapp_dir}" 1>&2
+			exit 1
+		fi
 	fi
-fi
-if test -n "${lapp_dir-''}" ; then
-	if test -e "${lapp_dir-''}" ; then
-		# We found something.  Try to remove it.  But don't try too hard.
-		rm "${lapp_dir-''}"
-	fi
-	ln -s "${app_dir}" "${lapp_dir-''}"
+else
+	printf 'openjade WORK AROUND: Creating symbolic link %s\n' "${lapp_dir}"
+	ln -s "${app_dir}" "${lapp_dir}"
 fi
 # END OF openjade WORK AROUND
 
@@ -300,7 +311,10 @@ unset -v port_names_to_install
 #		sudo port install -s py27-cairo
 
 # openjade WORK AROUND
-test -z "${lapp_dir-''}" || rm "${lapp_dir-''}"
+if test -n "${lapp_dir}" ; then
+	printf 'openjade WORK AROUND: Removing symbolic link %s\n' "${lapp_dir}"
+	rm "${lapp_dir}"
+fi
 # END OF openjade WORK AROUND
 
 # Minimize how much junk that the fix-* scripts will sift through.
