@@ -112,6 +112,17 @@ port_clean() {
 	# This takes a long time:  TODO: run clean --all all when we detect the script had been aborted.  (touch a .dirty file in tmp which we remove upon clean exit?)
 	#port clean --all all
 	port clean -q --all installed
+	if test -d "${app_dir}/Contents/Resources/var/macports/build/" ; then
+		rm -rf "${app_dir}/Contents/Resources/var/macports/build/"
+		mkdir "${app_dir}/Contents/Resources/var/macports/build/"
+	fi
+	if test -d "${app_dir}/Contents/Resources/var/macports/distfiles/" ; then
+		rm -rf "${app_dir}/Contents/Resources/var/macports/distfiles/"
+		mkdir "${app_dir}/Contents/Resources/var/macports/distfiles/"
+	fi
+	if test -d "${app_dir}/Contents/Resources/var/macports/sources/rsync.macports.org/" ; then
+		rm -rf "${app_dir}/Contents/Resources/var/macports/sources/rsync.macports.org/"
+	fi
 }
 
 # openjade WORK AROUND this bug:
