@@ -1,0 +1,120 @@
+#!/bin/sh
+set -e
+set -u
+
+prefix_dir="${1-"/"}"
+pkg_config_cmd="${2-"pkg-config"}"
+
+if ! test -d "${prefix_dir}" ; then
+	printf 'Cannot find specified prefix directory: %s\n' "${prefix_dir}" 1>&2
+	exit 1
+fi
+
+if ! command -v "${pkg_config_cmd}" >/dev/null 2>&1 ; then
+	printf 'Cannot find specified pkg-config: %s\n' "${pkg_config_cmd}" 1>&2
+	exit 1
+fi
+
+gen_dotdots () {
+	#$1 is prefix_dir
+	#$2 is pc_file_name
+	dotdots=''
+	until test "${1}" -ef "${2}${dotdots}" ; do
+		if test "${2}${dotdots}" -ef "${2}${dotdots}/.." ; then
+			printf 'Unable to find dotdots to make "%s" get to "%s".  Last attempted dotdots="%s"\n' "${2}" "${1}" "${dotdots}" 1>&2
+			# With "set -u", cause $dotdots to error out if someone uses it:
+			unset dotdots
+			return 1
+		fi
+		dotdots="${dotdots}/.."
+	done
+	return 0
+}
+
+unset symlink_pc_names
+for pc_name in $("${pkg_config_cmd}" --list-all | cut -d' ' -f1); do
+	pc_file_dir="$("${pkg_config_cmd}" --variable=pcfiledir "${pc_name}")"
+	# Is this .pc file located under our ${prefix_dir} ?
+	case "${pc_file_dir}" in
+		"${prefix_dir}"/* | "${prefix_dir}" )
+			# pc_file_dir is under ${prefix_dir}
+			pc_file_name="${pc_file_dir}/${pc_name}.pc"
+			if ! test -e "${pc_file_name}" ; then
+				printf 'Could not find pkg-config file: %s\n' "${pc_file_name}" 1>&2
+				exit 1
+			fi
+			if test -L "${pc_file_name}" ; then
+				printf 'Postponing pkg-config file that is a symbolic link: %s\n' "${pc_file_name}" 1>&2
+				symlink_pc_names="${symlink_pc_names-}${symlink_pc_names+" "}${pc_name}"
+				continue
+			fi
+			if ! fgrep -q "${prefix_dir}" "${pc_file_name}" >/dev/null 2>&1 ; then
+				printf 'pkg-config file is OK: %s\n' "${pc_file_name}"
+				continue
+			fi
+			# How many /.. do I need?  This will set dotdots
+			gen_dotdots "${prefix_dir}" "${pc_file_dir}"
+			if ! sed -e "s|${prefix_dir}|\${pcfiledir}${dotdots}|g" < "${pc_file_name}" > "${pc_file_name}.tmp" ; then
+				rm -f "${pc_file_name}.tmp" || true
+				printf 'sed failed\n' 1>&2
+				exit 1
+			fi
+			mv "${pc_file_name}.tmp" "${pc_file_name}"
+			unset pc_file_name
+			;;
+		*)
+			printf 'Skipping package "%s", which is in "%s" and not in "%s".\n' "${pc_name}" "${pc_file_dir}" "${prefix_dir}"
+			;;
+	esac
+	unset pc_file_dir
+done
+unset pc_name
+
+if test -z "${symlink_pc_names:-""}" ; then
+	# We're done.
+	exit 0
+fi
+
+# We found some symlink'ed .pc files.  Let's check them carefully, since if the
+# symbolic link was to the same directory, then we've already fixed the real
+# file.  But if it really lives in another directory, we should back it up
+# carefully and warn the user.
+
+for pc_name in ${symlink_pc_names} ; do
+	pc_file_dir="$("${pkg_config_cmd}" --variable=pcfiledir "${pc_name}")"
+	# Is this .pc file located under our ${prefix_dir} ?
+	case "${pc_file_dir}" in
+		"${prefix_dir}"/* | "${prefix_dir}" )
+			# pc_file_dir is under ${prefix_dir}
+			pc_file_name="${pc_file_dir}/${pc_name}.pc"
+			if ! test -e "${pc_file_name}" ; then
+				printf 'Could not find pkg-config file: %s\n' "${pc_file_name}" 1>&2
+				exit 1
+			fi
+			# Yep.  Of course this should be a symbolic link now, so throw an error if we find that it isn't:
+			if ! test -L "${pc_file_name}" ; then
+				printf 'This pkg-config file used to be a symbolic link but now it is not: %s\nAborting.\n' "${pc_file_name}" 1>&2
+				exit 1
+			fi
+			if ! fgrep -q "${prefix_dir}" "${pc_file_name}" >/dev/null 2>&1 ; then
+				printf 'Postponed pkg-config file is OK: %s\n' "${pc_file_name}"
+				continue
+			fi
+			# How many /.. do I need?  This will set dotdots
+			gen_dotdots "${prefix_dir}" "${pc_file_dir}"
+			if ! sed -e "s|${prefix_dir}|\${pcfiledir}${dotdots}|g" < "${pc_file_name}" > "${pc_file_name}.tmp" ; then
+				rm -f "${pc_file_name}.tmp" || true
+				printf 'sed failed\n' 1>&2
+				exit 1
+			fi
+			cat "${pc_file_name}.tmp" > "${pc_file_name}"
+			rm "${pc_file_name}.tmp"
+			unset pc_file_name
+			;;
+		*)
+			printf 'Skipping package "%s", which is in "%s" and not in "%s".\n' "${pc_name}" "${pc_file_dir}" "${prefix_dir}"
+			;;
+	esac
+	unset pc_file_dir
+done
+unset pc_name

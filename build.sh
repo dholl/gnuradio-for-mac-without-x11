@@ -303,18 +303,28 @@ fi
 unset -v ports_rev_cur
 
 
+# What ports do we want to install?
 # libmirisdr ?
 port_names="gnuradio hackrf bladeRF airspy rtl-sdr gr-osmosdr"
+
+# What extra ports do we need for our packaging needs?
+#	pkgconfig to assist with locating and fixing .pc files
+extra_port_names="pkgconfig"
+
+# Now test which ports have not been installed yet:
+printf 'Examining which ports need to be installed...\n'
 port_names_to_install=""
-for port_name in ${port_names} ; do
+for port_name in ${port_names} ${extra_port_names} ; do
 	if test "$(port -q contents "${port_name}" | wc -l)" -eq "0" ; then
 		port_names_to_install="${port_names_to_install-''}${port_names_to_install:+" "}${port_name}"
 	fi
 done
 unset -v port_name
-printf 'port_names_to_install=%s\n' "${port_names_to_install}"
 if [ -n "${port_names_to_install}" ]; then
+	printf 'Installing ports: %s\n' "${port_names_to_install}"
 	port -N -s install ${port_names_to_install}
+else
+	printf 'No new ports to install.\n'
 fi
 unset -v port_names_to_install
 #py27-cairo has the following notes:
@@ -333,8 +343,21 @@ port_clean
 
 # Now perform my own fix-* cleaning:
 
+# For this execution of fix-pkg-config, use env to ensure we don't accidentally
+# get any packages outside of the defaults included in the pkg-config we just
+# built:
+printf 'Making pkg-config (.pc) files relocatable...\n'
+env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
+	"${main_src_dir}/fix-pkg-config" "${app_dir}/Contents" "${app_dir}/Contents/Resources/bin/pkg-config"
+
 # TODO:
 # "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
+
+if [ -n "${extra_port_names}" ]; then
+	# We don't need this any more:
+	port unsetrequested ${extra_port_names}
+	port_clean
+fi
 
 printf 'Making symbolic links relocatable...\n'
 "${main_src_dir}/fix-symbolic-links" "${app_dir}/Contents"
