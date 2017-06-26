@@ -331,9 +331,13 @@ fi
 # Minimize how much junk that the fix-* scripts will sift through.
 port_clean
 
+# Now perform my own fix-* cleaning:
+
 # TODO:
 # "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
-# "${main_src_dir}/fix-symbolic-links" "${app_dir}/Contents"
+
+printf 'Making symbolic links relocatable...\n'
+"${main_src_dir}/fix-symbolic-links" "${app_dir}/Contents"
 
 # This can make pretty dependency trees:
 #   https://github.com/Synss/macports_deptree
