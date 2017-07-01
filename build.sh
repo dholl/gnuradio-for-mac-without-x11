@@ -294,7 +294,8 @@ fi
 ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
 # Check this _after_ "port selfupdate" stuff, to verify that the ports tree wasn't accidentally changed.
 if test -n "${ports_rev_req-""}" -a "x${ports_rev_req-""}" != "x${ports_rev_cur}" ; then
-	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req-""}"
+	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req-""}" 1>&2
+	exit 1
 fi
 if test "x${ports_rev_cur}" != "x${ports_rev_last}" ; then
 	port -s -u upgrade outdated || true
