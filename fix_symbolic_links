@@ -4,7 +4,7 @@
 # The above line sets vim to set tab stops at 4 columns, and fill them with spaces instead of tab characters.
 
 """
-fix-symbolic-links - Rewrite symbolic links to be relative instead of absolute
+fix_symbolic_links - Rewrite symbolic links to be relative instead of absolute
 """
 
 import os as _os

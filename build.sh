@@ -339,20 +339,20 @@ if test -n "${lapp_dir}" ; then
 fi
 # END OF openjade WORK AROUND
 
-# Minimize how much junk that the fix-* scripts will sift through.
+# Minimize how much junk that the fix_* scripts will sift through.
 port_clean
 
-# Now perform my own fix-* cleaning:
+# Now perform my own fix_* cleaning:
 
-# For this execution of fix-pkg-config, use env to ensure we don't accidentally
+# For this execution of fix_pkg_config, use env to ensure we don't accidentally
 # get any packages outside of the defaults included in the pkg-config we just
 # built:
 printf 'Making pkg-config (.pc) files relocatable...\n'
 env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
-	"${main_src_dir}/fix-pkg-config" "${app_dir}/Contents" "${app_dir}/Contents/Resources/bin/pkg-config"
+	"${main_src_dir}/fix_pkg_config" "${app_dir}/Contents" "${app_dir}/Contents/Resources/bin/pkg-config"
 
 # TODO:
-# "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
+# "${main_src_dir}/fix_library_references" "${app_dir}/Contents"
 
 if test -n "${extra_port_names}" ; then
 	# We don't need this any more:
@@ -361,7 +361,7 @@ if test -n "${extra_port_names}" ; then
 fi
 
 printf 'Making symbolic links relocatable...\n'
-"${main_src_dir}/fix-symbolic-links" "${app_dir}/Contents"
+"${main_src_dir}/fix_symbolic_links" "${app_dir}/Contents"
 
 # This can make pretty dependency trees:
 #   https://github.com/Synss/macports_deptree
