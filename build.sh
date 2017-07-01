@@ -111,7 +111,7 @@ port_clean() {
 	unset -v need_more_cleaning
 	# This takes a long time:  TODO: run clean --all all when we detect the script had been aborted.  (touch a .dirty file in tmp which we remove upon clean exit?)
 	#port clean --all all
-	port clean -q --all installed
+	port -q clean --all installed
 	if test -d "${app_dir}/Contents/Resources/var/macports/build/" ; then
 		rm -rf "${app_dir}/Contents/Resources/var/macports/build/"
 		mkdir "${app_dir}/Contents/Resources/var/macports/build/"
