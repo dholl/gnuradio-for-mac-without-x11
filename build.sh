@@ -251,17 +251,17 @@ ports_rev_req="ff6ce7fa929ede0751f8dfc08e1c7da937c7956e"
 # Or leave ports_rev_req unset to update to the latest.
 
 if test -n "${ports_rev_req-""}" ; then
-	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
+	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req-""}" ; then
 		printf 'ports tree: git pull ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" pull
-		printf 'ports tree: git reset --hard %s ...\n' "${ports_rev_req}"
-		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "${ports_rev_req}"
+		printf 'ports tree: git reset --hard %s ...\n' "${ports_rev_req-""}"
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "${ports_rev_req-""}"
 		printf 'ports tree: git gc ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" gc
 		# Delete .ports_rev_last to force portindex to run:
 		test ! -e "${tmp_dir}/.ports_rev_last" || rm "${tmp_dir}/.ports_rev_last"
-		if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
-			printf 'Failed to confirm ports tree at revision %s\n' "${ports_rev_req}" 1>&2
+		if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req-""}" ; then
+			printf 'Failed to confirm ports tree at revision %s\n' "${ports_rev_req-""}" 1>&2
 			exit 1
 		fi
 	fi
@@ -293,8 +293,8 @@ fi
 
 ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
 # Check this _after_ "port selfupdate" stuff, to verify that the ports tree wasn't accidentally changed.
-if test -n "${ports_rev_req-""}" -a "x${ports_rev_req}" != "x${ports_rev_cur}" ; then
-	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req}"
+if test -n "${ports_rev_req-""}" -a "x${ports_rev_req-""}" != "x${ports_rev_cur}" ; then
+	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req-""}"
 fi
 if test "x${ports_rev_cur}" != "x${ports_rev_last}" ; then
 	port -s -u upgrade outdated || true
