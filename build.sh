@@ -321,7 +321,7 @@ for port_name in ${port_names} ${extra_port_names} ; do
 	fi
 done
 unset -v port_name
-if [ -n "${port_names_to_install}" ]; then
+if test -n "${port_names_to_install}" ; then
 	printf 'Installing ports: %s\n' "${port_names_to_install}"
 	port -N -s install ${port_names_to_install}
 else
@@ -354,7 +354,7 @@ env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
 # TODO:
 # "${main_src_dir}/fix-library-references" "${app_dir}/Contents"
 
-if [ -n "${extra_port_names}" ]; then
+if test -n "${extra_port_names}" ; then
 	# We don't need this any more:
 	port unsetrequested ${extra_port_names}
 	port_clean
