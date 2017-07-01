@@ -250,7 +250,7 @@ fi
 ports_rev_req="ff6ce7fa929ede0751f8dfc08e1c7da937c7956e"
 # Or leave ports_rev_req unset to update to the latest.
 
-if test -n "${ports_rev_req-''}" ; then
+if test -n "${ports_rev_req-""}" ; then
 	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req}" ; then
 		printf 'ports tree: git pull ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" pull
@@ -281,7 +281,7 @@ else
 fi
 ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
 if test "$(( current_time-update_time > 20*60*60))" -eq "1" -o "x${ports_rev_cur}" != "x${ports_rev_last}"; then
-	if test -n "${ports_rev_req-''}" ; then
+	if test -n "${ports_rev_req-""}" ; then
 		port selfupdate --nosync # Don't try to sync ports tree, since we're locking the git revision.
 		# Don't run "port -v sync", because that would attempt to run "git pull --rebase --autostash".
 		# Here, just update the local index:
@@ -293,7 +293,7 @@ fi
 
 ports_rev_cur="$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )"
 # Check this _after_ "port selfupdate" stuff, to verify that the ports tree wasn't accidentally changed.
-if test -n "${ports_rev_req-''}" -a "x${ports_rev_req}" != "x${ports_rev_cur}" ; then
+if test -n "${ports_rev_req-""}" -a "x${ports_rev_req}" != "x${ports_rev_cur}" ; then
 	printf 'Failed sanity check.  Ports git revision "%s" does not match requested "%s".\n' "${ports_rev_cur}" "${ports_rev_req}"
 fi
 if test "x${ports_rev_cur}" != "x${ports_rev_last}" ; then
@@ -316,7 +316,7 @@ printf 'Examining which ports need to be installed...\n'
 port_names_to_install=""
 for port_name in ${port_names} ${extra_port_names} ; do
 	if test "$(port -q contents "${port_name}" | wc -l)" -eq "0" ; then
-		port_names_to_install="${port_names_to_install-''}${port_names_to_install:+" "}${port_name}"
+		port_names_to_install="${port_names_to_install-""}${port_names_to_install:+" "}${port_name}"
 	fi
 done
 unset -v port_name
