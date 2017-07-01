@@ -36,7 +36,7 @@ printf 'app_dir=%s\n' "${app_dir}"
 
 tmp_dir="${app_dir}/tmp" # TODO: Delete "${app_dir}/tmp" before building .dmg
 
-mkdir -p "${app_dir}" "${app_dir}/tmp"
+mkdir -p "${app_dir}" "${tmp_dir}"
 
 if ! test -e "${tmp_dir}/.macports-base.installed" ; then
 	if test -e "${tmp_dir}/macports-base.git" ; then
