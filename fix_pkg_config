@@ -4,6 +4,7 @@ set -u
 
 prefix_dir="${1-"/"}"
 pkg_config_cmd="${2-"pkg-config"}"
+fix_pkg_verbose_level="${fix_pkg_verbose_level-"0"}"
 
 if ! test -d "${prefix_dir}" ; then
 	printf 'Cannot find specified prefix directory: %s\n' "${prefix_dir}" 1>&2
@@ -44,12 +45,12 @@ for pc_name in $("${pkg_config_cmd}" --list-all | cut -d' ' -f1); do
 				exit 1
 			fi
 			if test -L "${pc_file_name}" ; then
-				printf 'Postponing pkg-config file that is a symbolic link: %s\n' "${pc_file_name}" 1>&2
+				test "0" -ge "${fix_pkg_verbose_level}" || printf 'Postponing pkg-config file that is a symbolic link: %s\n' "${pc_file_name}" 1>&2
 				symlink_pc_names="${symlink_pc_names-}${symlink_pc_names+" "}${pc_name}"
 				continue
 			fi
 			if ! fgrep -q "${prefix_dir}" "${pc_file_name}" >/dev/null 2>&1 ; then
-				printf 'pkg-config file is OK: %s\n' "${pc_file_name}"
+				test "0" -ge "${fix_pkg_verbose_level}" || printf 'pkg-config file is OK: %s\n' "${pc_file_name}"
 				continue
 			fi
 			# How many /.. do I need?  This will set dotdots
@@ -97,7 +98,7 @@ for pc_name in ${symlink_pc_names} ; do
 				exit 1
 			fi
 			if ! fgrep -q "${prefix_dir}" "${pc_file_name}" >/dev/null 2>&1 ; then
-				printf 'Postponed pkg-config file is OK: %s\n' "${pc_file_name}"
+				test "0" -ge "${fix_pkg_verbose_level}" || printf 'Postponed pkg-config file is OK: %s\n' "${pc_file_name}"
 				continue
 			fi
 			# How many /.. do I need?  This will set dotdots
