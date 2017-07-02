@@ -189,7 +189,7 @@ fi
 if ! test -e "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" ; then
 	printf 'Fetching ports tree over git...\n'
 	test -e "${app_dir}/Contents/Resources/var/macports/sources" || mkdir -v "${app_dir}/Contents/Resources/var/macports/sources"
-	if ! git clone https://github.com/macports/macports-ports.git "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" ; then
+	if ! git clone https://github.com/dholl/macports-ports.git "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" ; then
 		st=$?
 		rm -rf "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports"
 		printf 'git clone failed with status %s\n' "${st}" 1>&2
@@ -211,7 +211,7 @@ fi
 # from https://trac.macports.org/wiki/howto/SyncingWithGit
 #
 # Make sure we're locked at a known-working ports tree:
-ports_rev_req="ff6ce7fa929ede0751f8dfc08e1c7da937c7956e"
+ports_rev_req="c745ea5ed18c735bf267c93f8cdcaaf9f247a121"
 # Or leave ports_rev_req unset to update to the latest.
 
 if test -n "${ports_rev_req-""}" ; then
