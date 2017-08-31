@@ -221,15 +221,28 @@ fi
 # from https://trac.macports.org/wiki/howto/SyncingWithGit
 #
 # Make sure we're locked at a known-working ports tree:
-ports_rev_req="c745ea5ed18c735bf267c93f8cdcaaf9f247a121"
+#ports_rev_req="c745ea5ed18c735bf267c93f8cdcaaf9f247a121"
 # Or leave ports_rev_req unset to update to the latest.
+ports_branch="last-working-glib2-with-openjade-fix"
+# TODO:
+# detect if we're currently on ${ports_branch}.  (can I just always blindly check it out?)
+# Then detect if ports_rev_req is within the history.  If not, then ask the user to put in the correct branch?
 
 if test -n "${ports_rev_req-""}" ; then
 	if test "$( git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" rev-parse HEAD )" != "${ports_rev_req-""}" ; then
+		# Make sure that we're on ${ports_branch}:
+		printf 'ports tree: git checkout %s ...\n' "${ports_branch}"
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" checkout "${ports_branch}"
+		# And undo any local change to our local ${ports_branch} such as by a previous reset --hard...
+		printf 'ports tree: git reset --hard origin/%s ...\n' "${ports_branch}"
+		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "origin/${ports_branch}"
+		# Now check for upstream updates:
 		printf 'ports tree: git pull ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" pull
+		# And lock to a specified revision: (This may shift ${ports_branch} into a branch if that's where ports_rev_req leads)
 		printf 'ports tree: git reset --hard %s ...\n' "${ports_rev_req-""}"
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "${ports_rev_req-""}"
+		# Clean cruft if possible:
 		printf 'ports tree: git gc ...\n'
 		git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" gc
 		# Delete .ports_rev_last to force portindex to run:
@@ -239,6 +252,14 @@ if test -n "${ports_rev_req-""}" ; then
 			exit 1
 		fi
 	fi
+else
+	# Undo any accidental mutilations from having previously run with fixed ports_rev_req
+	# Make sure that we're on ${ports_branch}:
+	printf 'ports tree: git checkout %s ...\n' "${ports_branch}"
+	git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" checkout "${ports_branch}"
+	# And undo any local change to our local ${ports_branch} such as by a previous reset --hard...
+	printf 'ports tree: git reset --hard origin/%s ...\n' "${ports_branch}"
+	git -C "${app_dir}/Contents/Resources/var/macports/sources/github.com-ports" reset --hard "origin/${ports_branch}"
 fi
 
 # Run "port selfupdate" if we haven't done it in 20 hours, or if the current
