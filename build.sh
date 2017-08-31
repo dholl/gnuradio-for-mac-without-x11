@@ -90,6 +90,16 @@ port () {
 }
 
 port_clean() {
+	if test "0" -eq "$(port echo requested | wc -l)" ; then
+		cat << 'EOF' 1>&2
+About to clean ports, but ...
+
+Since there are no requested ports installed, this action will uninstall everything.
+Are you really sure you want to do this?
+I will sleep for 15 seconds to let you ponder about aborting this script.
+EOF
+		sleep 15
+	fi
 	printf 'Cleaning ports...\n'
 	# Do some cleaning:
 	need_more_cleaning=1
