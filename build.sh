@@ -328,6 +328,165 @@ unset -v port_names_to_install
 #	Make sure cairo is installed with the +x11 variant when installing the binary version of py27-cairo or install py27-cairo from source like so:
 #		sudo port install -s py27-cairo
 
+mkdir -p "${app_dir}/bin/._gnuradio"
+cat << 'EOF' > "${app_dir}/bin/._gnuradio/ln_helper"
+#!/bin/sh
+set -e
+set -u
+
+# Figure out where this script is located: (relative to ${app_dir}/bin and NOT ${app_dir}/bin/._gnuradio )
+test -z "${0##/*}" && argv0_path="$0" || argv0_path="$PWD/$0"
+script_dir="${argv0_path%/*}"
+
+bundle="${script_dir}/.."
+
+exec "${script_dir}/._gnuradio/run_env" "${bundle}" "${bundle}/Contents/Resources/bin/${0##*/}" "$@"
+EOF
+chmod 755 "${app_dir}/bin/._gnuradio/ln_helper"
+cat << 'EOF' > "${app_dir}/bin/._gnuradio/run_env"
+#!/bin/sh
+set -e
+set -u
+
+bundle="${1}"
+shift
+exe_file="${1}"
+shift
+
+export PATH="${bundle}/Contents/Resources/bin:${PATH}"
+
+# These are vetted by D.Holl:
+# Specify installed prefix AND exec_prefix
+export PYTHONHOME="${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7:${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7"
+# Doesn't work: export DYLD_LIBRARY_PATH="${bundle}/Contents/Resources/lib"
+export XDG_CONFIG_DIRS="${bundle}/Contents/Resources/etc/xdg"
+# export XDG_CONFIG_HOME="${bundle}/Contents/Resources/share" # D.Holl TODO is this right?  Needed according to https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
+export XDG_DATA_DIRS="${bundle}/Contents/Resources/share" # D.Holl TODO: If I have this, then I don't need XDG_CONFIG_HOME, right?
+# TODO: Compare XDG_* with guidelines from https://developer.apple.com/library/content/documentation/General/Conceptual/MOSXAppProgrammingGuide/AppRuntime/AppRuntime.html
+# Specifically:
+#	File-System Usage Requirements for the Mac App Store
+#		...
+#		Your application must adhere to the following requirements:
+#			...
+#			* Your application may write to the following directories:
+#				~/Library/Application Support/<app-identifier>
+#				~/Library/<app-identifier>
+#				~/Library/Caches/<app-identifier>
+#			  where <app-identifier> is your application's bundle identifier, its name, or your company’s name. This must exactly match what is in iTunes Connect for the application.
+#			  Always use Apple programming interfaces such as the URLsForDirectory:inDomains: function to locate these paths rather than hardcoding them. For more information, see File System Programming Guide.
+#			...
+
+# THese are not yet vetted by D.Holl:
+export GTK_DATA_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
+export GTK_EXE_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
+unset -v GTK_PATH # D.Holl best guess since GTK_EXE_PREFIX controls system default search path.  GIMP uses "${bundle}/Contents/Resources"
+
+# TODO See this note from https://developer.gnome.org/gtk2/stable/gtk-running.html
+#	GTK_PATH.  Specifies a list of directories to search when GTK+ is looking
+#	for dynamically loaded objects such as the modules specified by
+#	GTK_MODULES, theme engines, input method modules, file system backends and
+#	print backends. If the path to the dynamically loaded object is given as an
+#	absolute path name, then GTK+ loads it directly. Otherwise, GTK+ goes in
+#	turn through the directories in GTK_PATH, followed by the directory
+#	.gtk-2.0 in the user's home directory, followed by the system default
+#	directory, which is libdir/gtk-2.0/modules. (If GTK_EXE_PREFIX is defined,
+#	libdir is $GTK_EXE_PREFIX/lib. Otherwise it is the libdir specified when
+#	GTK+ was configured, usually /usr/lib, or /usr/local/lib.) For each
+#	directory in this list, GTK+ actually looks in a subdirectory
+#	directory/version/host/type Where version is derived from the version of
+#	GTK+ (use pkg-config --variable=gtk_binary_version gtk+-2.0 to determine
+#	this from a script), host is the architecture on which GTK+ was built. (use
+#	pkg-config --variable=gtk_host gtk+-2.0 to determine this from a script),
+#	and type is a directory specific to the type of modules; currently it can
+#	be modules, engines, immodules, filesystems or printbackends, corresponding
+#	to the types of modules mentioned above. Either version, host, or both may
+#	be omitted. GTK+ looks first in the most specific directory, then in
+#	directories with fewer components. The components of GTK_PATH are separated
+#	by the ':' character on Linux and Unix, and the ';' character on Windows.
+
+# GTK_* vars described at: https://developer.gnome.org/gtk2/stable/gtk-running.html
+unset -v GTK2_MODULES # D.Holl best guess.
+unset -v GTK_MODULES # D.Holl best guess.
+unset -v GTK_IM_MODULE # D.Holl best guess.
+
+# Set up generic configuration
+export GTK2_RC_FILES="${bundle}/Contents/Resources/share/themes/Mac/gtk-2.0-key/gtkrc" # D.Holl - I took a guess at this.  But GIMP uses: ".../Contents/Resources/etc/gtk-2.0/gtkrc"
+# WHICH IS CORRECT?
+	export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gtk.immodules" # D.Holl vetted.  :)
+	export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" # D.Holl vetted.  :)
+# WHICH IS CORRECT?
+	export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" # D.Holl vetted.  Mentioned in https://developer.gnome.org/gtk2/stable/gtk-running.html
+	export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" # D.Holl vetted.  :)
+export GDK_PIXBUF_MODULEDIR="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders" # D.Holl vetted.  :)
+
+# TODO Verify XDG_DATA_HOME and XDG_DATA_DIRS as needed by https://developer.gnome.org/gtk2/stable/gtk-running.html
+
+# TODO invoke /Applications/GNURadio.app/Contents/Resources/bin/gdk-pixbuf-query-loaders to test GDK_PIXBUF_MODULE_FILE
+# TODO invoke /Applications/GNURadio.app/Contents/Resources/bin/gtk-query-immodules-2.0 to test GTK_IM_MODULE_FILE
+
+# D.Holl unused for GNURadio? export PANGO_RC_FILE="${bundle}/Contents/Resources/etc/pango/pangorc"
+export PANGO_SYSCONFDIR="${bundle}/Contents/Resources/etc" # D.Holl best guess
+export PANGO_LIBDIR="${bundle}/Contents/Resources/lib" # D.Holl best guess
+
+# Specify Fontconfig configuration file
+export FONTCONFIG_FILE="${bundle}/Contents/Resources/etc/fonts/fonts.conf" # D.Holl vetted.  :)
+export FONTCONFIG_PATH="${bundle}/Contents/Resources/etc/fonts" # D.Holl best guess.
+export FC_DEBUG=1024 # D.Holl - Verify that fontconfig is looking in the right places, and then remove this.
+# TODO: Edit fonts.conf to replace hard-coded path to bundle.  See https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
+
+# Include GEGL path
+# D.Holl unused for GNURadio? export GEGL_PATH="${bundle}/Contents/Resources/lib/gegl-0.2"
+
+# Include BABL path
+# D.Holl unused for GNURadio? export BABL_PATH="${bundle}/Contents/Resources/lib/babl-0.1"
+
+#unset -v PYTHONPATH # D.Holl best guess.  Do I need to set this if I set PYTHONHOME
+# TODO Get rid of PYTHONPATH if relocation works without it.  We don't want to unset it if the user specifically set it...
+
+# Set custom Poppler Data Directory
+# D.Holl unused for GNURadio? export POPPLER_DATADIR="${bundle}/Contents/Resources/share/poppler"
+
+# Specify Ghostscript directories
+# export GS_RESOURCE_DIR="${bundle}/Contents/Resources/share/ghostscript/9.06/Resource"
+# export GS_ICC_PROFILES="${bundle}/Contents/Resources/share/ghostscript/9.06/iccprofiles/"
+# export GS_LIB="$GS_RESOURCE_DIR/Init:$GS_RESOURCE_DIR:$GS_RESOURCE_DIR/Font:${bundle}/Contents/Resources/share/ghostscript/fonts:${bundle}/Contents/Resources/share/fonts/urw-fonts:$GS_ICC_PROFILES"
+# export GS_FONTPATH="${bundle}/Contents/Resources/share/ghostscript/fonts:${bundle}/Contents/Resources/share/fonts/urw-fonts:~/Library/Fonts:/Library/Fonts:/System/Library/Fonts"
+
+# set up character encoding aliases
+if test -f "${bundle}/Contents/Resources/lib/charset.alias"; then
+	export CHARSETALIASDIR="${bundle}/Contents/Resources/lib"
+fi
+
+exec "${exe_file}" "$@"
+EOF
+chmod 755 "${app_dir}/bin/._gnuradio/run_env"
+
+(
+cd "${app_dir}/bin"
+printf 'Removing symlinks:'
+for bin_name in * ; do
+	if test -L "${bin_name}" && test "._gnuradio/ln_helper" -ef "${bin_name}" ; then
+		# Clean out all symlinks:
+		printf ' %s' "${bin_name}"
+		rm "${bin_name}"
+	fi
+done
+printf '\n'
+)
+printf 'Creating symlinks:'
+for bin_name in $(port -q contents ${port_names} | sed -e 's_^[[:space:]]*__' | awk -v tgt="${app_dir}/Contents/Resources/bin/" '{if (index($0, tgt)==1) {b=substr($0, length(tgt)+1); if (match(b, "[/[[:space:]]]")==0) print b}}') ; do
+	if test -x "${app_dir}/Contents/Resources/bin/${bin_name}" ; then
+		if test -e "${app_dir}/bin/${bin_name}" ; then
+			printf '\nWARNING: Skipping symlink for %s because a file already exists...\n' "${bin_name}" 1>&2
+		else
+			printf ' %s' "${bin_name}"
+			ln -s ._gnuradio/ln_helper "${app_dir}/bin/${bin_name}"
+		fi
+	fi
+done
+printf '\n'
+unset -v bin_name
+
 # Minimize how much junk that the fix_* scripts will sift through.
 port_clean
 
