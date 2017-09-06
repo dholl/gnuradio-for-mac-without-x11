@@ -305,7 +305,8 @@ port_names="gnuradio hackrf bladeRF airspy rtl-sdr gr-osmosdr"
 
 # What extra ports do we need for our packaging needs?
 #	pkgconfig to assist with locating and fixing .pc files
-extra_port_names="pkgconfig"
+#	py27-macholib for fixing library references
+extra_port_names="pkgconfig py27-macholib"
 
 # Now test which ports have not been installed yet:
 printf 'Examining which ports need to be installed...\n'
