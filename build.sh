@@ -421,9 +421,6 @@ export GDK_PIXBUF_MODULEDIR="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.1
 
 # TODO Verify XDG_DATA_HOME and XDG_DATA_DIRS as needed by https://developer.gnome.org/gtk2/stable/gtk-running.html
 
-# TODO invoke /Applications/GNURadio.app/Contents/Resources/bin/gdk-pixbuf-query-loaders to test GDK_PIXBUF_MODULE_FILE
-# TODO invoke /Applications/GNURadio.app/Contents/Resources/bin/gtk-query-immodules-2.0 to test GTK_IM_MODULE_FILE
-
 # D.Holl unused for GNURadio? export PANGO_RC_FILE="${bundle}/Contents/Resources/etc/pango/pangorc"
 export PANGO_SYSCONFDIR="${bundle}/Contents/Resources/etc" # D.Holl best guess
 export PANGO_LIBDIR="${bundle}/Contents/Resources/lib" # D.Holl best guess
@@ -514,33 +511,43 @@ printf 'Making symbolic links relocatable...\n'
 # This can make pretty dependency trees:
 #   https://github.com/Synss/macports_deptree
 
-# From http://aaronscher.com/wireless_com_SDR/MacOSX_install_gnu_radio.html
+printf 'Testing installation...\n'
+test_failed=0
+
+# Test GDK_ environment variables:
+"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/gdk-pixbuf-query-loaders" > /dev/null 2>&1 && st="$?" || st="$?"
+# superfluous bin/.. added to emulate ln_helper
+if test 0 -ne "${st}" ; then
+	printf 'Test command failed: gdk-pixbuf-query-loaders\n\tExit status: %s\n\tOutput:\n' "${st}" 1>&2
+	"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/gdk-pixbuf-query-loaders" 1>&2 || true
+	test_failed=1
+fi
+
+# Test GTK_ environment variables:
+"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/gtk-query-immodules-2.0" > /dev/null 2>&1 && st="$?" || st="$?"
+# superfluous bin/.. added to emulate ln_helper
+if test 0 -ne "${st}" ; then
+	printf 'Test command failed: gtk-query-immodules-2.0\n\tExit status: %s\n\tOutput:\n' "${st}" 1>&2
+	"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/gtk-query-immodules-2.0" 1>&2 || true
+	test_failed=1
+fi
+
+# Inspired by http://aaronscher.com/wireless_com_SDR/MacOSX_install_gnu_radio.html
 #   Check to see if gnuradio installed correctly by typing the following in the Terminal:
 #     gnuradio-config-info --version
 #   This should display the version of GNU Radio.
+test_cmd="${app_dir}/bin/gnuradio-config-info"
+for test_arg in --prefix --sysconfdir --prefsdir --userprefsdir --prefs --builddate --enabled-components --cc --cxx --cflags --version ; do
+	"${test_cmd}" ${test_arg} > /dev/null 2>&1 && st="$?" || st="$?"
+	if test 0 -ne "${st}" ; then
+		printf 'Test command failed: %s%s\n\tExit status: %s\n\tOutput:\n' "${test_cmd}" " ${test_arg}" "${st}" 1>&2
+		"${test_cmd}" ${test_arg} 1>&2 || true
+		test_failed=1
+	fi
+done
+unset -v test_cmd test_arg
 
-
-# 2017-06-07 - Where I left off:
-#	--->  Some of the ports you installed have notes:
-#	  coreutils has the following notes:
-#	    The tools provided by GNU coreutils are prefixed with the character 'g' by default to distinguish them from the BSD commands.
-#	    For example, cp becomes gcp and ls becomes gls.
-#
-#	    If you want to use the GNU tools by default, add this directory to the front of your PATH environment variable:
-#	        /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/libexec/gnubin/
-#	  dbus has the following notes:
-#	    ############################################################################
-#	    # Startup items were not installed for dbus
-#	    # Some programs which depend on dbus might not function properly.
-#	    # To load dbus manually, run
-#	    #
-#	    # launchctl load -w /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/Library/LaunchDaemons/org.freedesktop.dbus-system.plist
-#	    # launchctl load -w /Users/dholl/Desktop/Installers/gnuradio-for-mac-with-macports/GNURadio.app/Contents/Resources/Library/LaunchAgents/org.freedesktop.dbus-session.plist
-#	    ############################################################################
-#	  py27-sphinx has the following notes:
-#	    To make the Python 2.7 version of Sphinx the one that is run when you execute the commands without a version suffix, e.g. 'sphinx-build', run:
-#
-#	    port select --set sphinx py27-sphinx
-#	zsh: exit 1     ./notes.sh
-#	zero(ttys008):...ith-macports>
-
+if test 0 -ne "${test_failed}" ; then
+	exit 1
+fi
+unset -v test_failed
