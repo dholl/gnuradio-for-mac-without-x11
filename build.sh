@@ -579,11 +579,11 @@ env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
 #   3 #!/Applications/GNURadio.app/Contents/Resources/bin/python2.7
 #   3 #!/Applications/GNURadio.app/Contents/Resources/libexec/macports/bin/tclsh8.5
 
-if test -n "${extra_port_names}" ; then
-	# We don't need this any more:
-	port unsetrequested ${extra_port_names}
-	port_clean
-fi
+#if test -n "${extra_port_names}" ; then
+#	# We don't need this any more:
+#	port unsetrequested ${extra_port_names}
+#	port_clean
+#fi
 
 printf 'Making symbolic links relocatable...\n'
 "${main_src_dir}/fix_symbolic_links" "${app_dir}/Contents"
