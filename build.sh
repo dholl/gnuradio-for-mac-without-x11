@@ -355,7 +355,7 @@ shift
 
 export PATH="${bundle}/Contents/Resources/bin:${PATH}"
 
-# These are vetted by D.Holl:
+# D.Holl - I following GIMP.app as a guide, but deviated often at my discretion as I read through the docs of each underlying library:
 # Specify installed prefix AND exec_prefix
 export PYTHONHOME="${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7:${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7"
 # Doesn't work: export DYLD_LIBRARY_PATH="${bundle}/Contents/Resources/lib"
@@ -376,48 +376,19 @@ export XDG_DATA_DIRS="${bundle}/Contents/Resources/share" # D.Holl TODO: If I ha
 #			  Always use Apple programming interfaces such as the URLsForDirectory:inDomains: function to locate these paths rather than hardcoding them. For more information, see File System Programming Guide.
 #			...
 
-# THese are not yet vetted by D.Holl:
+# GTK_* vars described at: https://developer.gnome.org/gtk2/stable/gtk-running.html
 export GTK_DATA_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
 export GTK_EXE_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
 unset -v GTK_PATH # D.Holl best guess since GTK_EXE_PREFIX controls system default search path.  GIMP uses "${bundle}/Contents/Resources"
-
-# TODO See this note from https://developer.gnome.org/gtk2/stable/gtk-running.html
-#	GTK_PATH.  Specifies a list of directories to search when GTK+ is looking
-#	for dynamically loaded objects such as the modules specified by
-#	GTK_MODULES, theme engines, input method modules, file system backends and
-#	print backends. If the path to the dynamically loaded object is given as an
-#	absolute path name, then GTK+ loads it directly. Otherwise, GTK+ goes in
-#	turn through the directories in GTK_PATH, followed by the directory
-#	.gtk-2.0 in the user's home directory, followed by the system default
-#	directory, which is libdir/gtk-2.0/modules. (If GTK_EXE_PREFIX is defined,
-#	libdir is $GTK_EXE_PREFIX/lib. Otherwise it is the libdir specified when
-#	GTK+ was configured, usually /usr/lib, or /usr/local/lib.) For each
-#	directory in this list, GTK+ actually looks in a subdirectory
-#	directory/version/host/type Where version is derived from the version of
-#	GTK+ (use pkg-config --variable=gtk_binary_version gtk+-2.0 to determine
-#	this from a script), host is the architecture on which GTK+ was built. (use
-#	pkg-config --variable=gtk_host gtk+-2.0 to determine this from a script),
-#	and type is a directory specific to the type of modules; currently it can
-#	be modules, engines, immodules, filesystems or printbackends, corresponding
-#	to the types of modules mentioned above. Either version, host, or both may
-#	be omitted. GTK+ looks first in the most specific directory, then in
-#	directories with fewer components. The components of GTK_PATH are separated
-#	by the ':' character on Linux and Unix, and the ';' character on Windows.
-
-# GTK_* vars described at: https://developer.gnome.org/gtk2/stable/gtk-running.html
 unset -v GTK2_MODULES # D.Holl best guess.
 unset -v GTK_MODULES # D.Holl best guess.
 unset -v GTK_IM_MODULE # D.Holl best guess.
 
 # Set up generic configuration
 export GTK2_RC_FILES="${bundle}/Contents/Resources/share/themes/Mac/gtk-2.0-key/gtkrc" # D.Holl - I took a guess at this.  But GIMP uses: ".../Contents/Resources/etc/gtk-2.0/gtkrc"
-# WHICH IS CORRECT?
-	export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gtk.immodules" # D.Holl vetted.  :)
-	export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" # D.Holl vetted.  :)
-# WHICH IS CORRECT?
-	export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" # D.Holl vetted.  Mentioned in https://developer.gnome.org/gtk2/stable/gtk-running.html
-	export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" # D.Holl vetted.  :)
-export GDK_PIXBUF_MODULEDIR="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders" # D.Holl vetted.  :)
+export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
+export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
+export GDK_PIXBUF_MODULEDIR="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders"
 
 # TODO Verify XDG_DATA_HOME and XDG_DATA_DIRS as needed by https://developer.gnome.org/gtk2/stable/gtk-running.html
 
@@ -488,6 +459,40 @@ unset -v bin_name
 port_clean
 
 # Now perform my own fix_* cleaning:
+
+# Replace "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" with symlink to "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
+if test -L "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" ; then
+	# For paranoia, make sure we're about to point a symbolic link to a regular file to avoid pointing to a symlink that points back circularly:
+	printf '%s is a symbolic link!\n' 1>&2
+	exit 1
+fi
+if test -e "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" ; then
+	if ! test "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" -ef "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" ; then
+		rm "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
+		ln -s "../../../etc/gtk-2.0/gtk.immodules" "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
+	fi
+else
+	ln -s "../../../etc/gtk-2.0/gtk.immodules" "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
+fi
+# Replace "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" with symlink to "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
+if test -L "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" ; then
+	# For paranoia, make sure we're about to point a symbolic link to a regular file to avoid pointing to a symlink that points back circularly:
+	printf '%s is a symbolic link!\n' 1>&2
+	exit 1
+fi
+if test -e "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" ; then
+	if ! test "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" -ef "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" ; then
+		rm "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+		ln -s "../../../etc/gtk-2.0/gdk-pixbuf.loaders" "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+	fi
+else
+	ln -s "../../../etc/gtk-2.0/gdk-pixbuf.loaders" "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+fi
+
+# TODO: Make files relocatable:
+#	"${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
+#	"${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
+
 
 # For this execution of fix_pkg_config, use env to ensure we don't accidentally
 # get any packages outside of the defaults included in the pkg-config we just
