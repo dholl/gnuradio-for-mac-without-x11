@@ -358,6 +358,7 @@ export PATH="${bundle}/Contents/Resources/bin:${PATH}"
 # D.Holl - I following GIMP.app as a guide, but deviated often at my discretion as I read through the docs of each underlying library:
 # Specify installed prefix AND exec_prefix
 export PYTHONHOME="${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7:${bundle}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7"
+# TODO: Confirm if I really need PYTHONHOME
 # Doesn't work: export DYLD_LIBRARY_PATH="${bundle}/Contents/Resources/lib"
 export XDG_CONFIG_DIRS="${bundle}/Contents/Resources/etc/xdg"
 # export XDG_CONFIG_HOME="${bundle}/Contents/Resources/share" # D.Holl TODO is this right?  Needed according to https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
@@ -568,6 +569,15 @@ env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
 
 # TODO:
 # "${main_src_dir}/fix_library_references" "${app_dir}/Contents"
+
+# TODO:
+# "${main_src_dir}/fix_script_references" "${app_dir}/Contents"
+#zero(ttys000):...-without-x11> find /Applications/GNURadio.app -type f -perm +0111 -print0 | xargs -0 grep '^#!/Appl' | cut -d: -f2- | sort | uniq -c
+#  42 #!/Applications/GNURadio.app/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python
+# 174 #!/Applications/GNURadio.app/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/bin/python2.7
+#  31 #!/Applications/GNURadio.app/Contents/Resources/bin/perl5.24
+#   3 #!/Applications/GNURadio.app/Contents/Resources/bin/python2.7
+#   3 #!/Applications/GNURadio.app/Contents/Resources/libexec/macports/bin/tclsh8.5
 
 if test -n "${extra_port_names}" ; then
 	# We don't need this any more:
