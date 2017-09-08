@@ -343,7 +343,7 @@ bundle="${script_dir}/.."
 exec "${script_dir}/._gnuradio/run_env" "${bundle}" "${bundle}/Contents/Resources/bin/${0##*/}" "$@"
 EOF
 chmod 755 "${app_dir}/bin/._gnuradio/ln_helper"
-cat << 'EOF' > "${app_dir}/bin/._gnuradio/run_env"
+cat << 'EOFQ' > "${app_dir}/bin/._gnuradio/run_env"
 #!/bin/sh
 set -e
 set -u
@@ -397,10 +397,55 @@ export PANGO_SYSCONFDIR="${bundle}/Contents/Resources/etc" # D.Holl best guess
 export PANGO_LIBDIR="${bundle}/Contents/Resources/lib" # D.Holl best guess
 
 # Specify Fontconfig configuration file
-export FONTCONFIG_FILE="${bundle}/Contents/Resources/etc/fonts/fonts.conf" # D.Holl vetted.  :)
+##export FONTCONFIG_FILE="${bundle}/Contents/Resources/etc/fonts/fonts.conf" # D.Holl vetted.  :)
+FONTCONFIG_FILE="$(mktemp -t ".gnuradio-fontconfig-$(id -u)-" 2>/dev/null)" && st="$?" || st="$?"
+if test 0 -ne "${st}" ; then
+	printf 'mktemp exited with nonzero status %s\n' "${st}" 1>&2
+	exit 1
+fi
+unset -v st
+if ! test -f "${FONTCONFIG_FILE}" ; then
+	printf 'mktemp failed to create temporary file\n' 1>&2
+	exit 1
+fi
+cat << EOF > "${FONTCONFIG_FILE}"
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<!-- Write out the current PID so we have a way to detect stale temp files:
+gnuradio_fontconfig_pid=$$
+-->
+<!-- /etc/fonts/fonts.conf file to configure system font access -->
+<fontconfig>
+<!-- Adding ~/Library/Fonts before any other <dir> specification: -->
+<dir>~/Library/Fonts</dir>
+<!-- Now include our bundle's fonts: -->
+<dir>${bundle}/Contents/Resources/share/fonts</dir>
+<!-- Now include the rest of the default config: -->
+<include>${bundle}/Contents/Resources/etc/fonts/fonts.conf</include>
+</fontconfig>
+EOF
+export FONTCONFIG_FILE
+for tmpfile in "${FONTCONFIG_FILE%/*}/.gnuradio-fontconfig-$(id -u)-"* ; do
+	if test -e "${tmpfile}" ; then
+		tmpfile_pid="$(grep '^gnuradio_fontconfig_pid=[0-9]*$' "${tmpfile}")" && st="$?" || st="$?"
+		# Strip off the leading "gnuradio_fontconfig_pid="
+		tmpfile_pid="${tmpfile_pid#gnuradio_fontconfig_pid=}"
+		if test 0 -ne "${st}" ; then
+			printf 'Could not find pid from temporary fontconfig file: %s\n' "${tmpfile}" 1>&2
+		else
+			if ! kill -0 "${tmpfile_pid}" >/dev/null 2>&1 ; then
+				# kill -0 tests if a pid exists.
+				# If a pid doesn't exist, then we remove this tmpfile:
+				#printf 'Removing stale temporary fontconfig file: %s\n' "${tmpfile}" 1>&2
+				rm -f "${tmpfile}"
+			fi
+		fi
+		unset -v tmpfile_pid
+	fi
+done
+unset -v tmpfile
 export FONTCONFIG_PATH="${bundle}/Contents/Resources/etc/fonts" # D.Holl best guess.
 export FC_DEBUG=1024 # D.Holl - Verify that fontconfig is looking in the right places, and then remove this.
-# TODO: Edit fonts.conf to replace hard-coded path to bundle.  See https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
 
 # Include GEGL path
 # D.Holl unused for GNURadio? export GEGL_PATH="${bundle}/Contents/Resources/lib/gegl-0.2"
@@ -426,7 +471,7 @@ if test -f "${bundle}/Contents/Resources/lib/charset.alias"; then
 fi
 
 exec "${exe_file}" "$@"
-EOF
+EOFQ
 chmod 755 "${app_dir}/bin/._gnuradio/run_env"
 
 (
@@ -459,6 +504,26 @@ unset -v bin_name
 port_clean
 
 # Now perform my own fix_* cleaning:
+
+# Edit fonts.conf to replace hard-coded path to bundle.  See https://www.freedesktop.org/software/fontconfig/fontconfig-user.html
+#	Fix this so it is no longer hard-coded:  Can I make it relative to FONTCONFIG_PATH which is ${app_dir}/Contents/Resources/etc/fonts ?  https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcconfigfilename.html
+#	Remove this from Contents/Resources/etc/fonts/fonts.conf:
+# Create temp file with same perms as orig file:
+printf 'Removing hard-coded bundle paths from %s\n' "${app_dir}/Contents/Resources/etc/fonts/fonts.conf"
+cp -a "${app_dir}/Contents/Resources/etc/fonts/fonts.conf" "${app_dir}/Contents/Resources/etc/fonts/fonts.conf.tmp"
+# Now we can put fixed-up paths into this new fonts.conf before including the main fonts.conf:
+# TODO: quote ${app_dir} in case it has any special regex chars?
+sed \
+	-e "s|[[:space:]]*<dir>${app_dir}/Contents/Resources/share/fonts</dir>||g" \
+	-e "s|[[:space:]]*<cachedir>/Applications/GNURadio.app/Contents/Resources/var/cache/fontconfig</cachedir>||g" \
+	-e "s|[[:space:]]*<dir>/Network/Library/Fonts</dir>||g" \
+	< "${app_dir}/Contents/Resources/etc/fonts/fonts.conf" \
+	> "${app_dir}/Contents/Resources/etc/fonts/fonts.conf.tmp"
+mv "${app_dir}/Contents/Resources/etc/fonts/fonts.conf.tmp" "${app_dir}/Contents/Resources/etc/fonts/fonts.conf"
+if test -e "${app_dir}/Contents/Resources/var/cache/fontconfig" ; then
+	# We're not keeping a writable cache directory within the bundle:
+	rm -r "${app_dir}/Contents/Resources/var/cache/fontconfig"
+fi
 
 # Replace "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" with symlink to "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
 if test -L "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" ; then
@@ -534,6 +599,15 @@ fi
 if test 0 -ne "${st}" ; then
 	printf 'Test command failed: gtk-query-immodules-2.0\n\tExit status: %s\n\tOutput:\n' "${st}" 1>&2
 	"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/gtk-query-immodules-2.0" 1>&2 || true
+	test_failed=1
+fi
+
+# Test fontconfig:
+"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/fc-list" > /dev/null 2>&1 && st="$?" || st="$?"
+# superfluous bin/.. added to emulate ln_helper
+if test 0 -ne "${st}" ; then
+	printf 'Test command failed: fc-list\n\tExit status: %s\n\tOutput:\n' "${st}" 1>&2
+	"${app_dir}/bin/._gnuradio/run_env" "${app_dir}/bin/.." "${app_dir}/bin/../Contents/Resources/bin/fc-list" 1>&2 || true
 	test_failed=1
 fi
 
