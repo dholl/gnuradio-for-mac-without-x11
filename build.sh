@@ -571,6 +571,133 @@ done
 printf '\n'
 unset -v bin_name
 
+printf 'Writing Contents/MacOS/GNURadio launch script...\n'
+mkdir -p "${app_dir}/Contents/MacOS"
+cat << 'EOF' > "${app_dir}/Contents/MacOS/GNURadio"
+#!/bin/sh
+set -e
+set -u
+
+# Figure out where this script is located: (relative to ${app_dir}/bin and NOT ${app_dir}/bin/._gnuradio )
+test -z "${0##/*}" && argv0_path="$0" || argv0_path="$PWD/$0"
+script_dir="${argv0_path%/*}"
+
+# If script_dir ends with .../Contents/MacOS then strip the trailing /Contents/MacOS, else just append ../..
+test -z "${script_dir%%*/Contents/MacOS}" && bundle="${script_dir%/Contents/MacOS}" || bundle="${script_dir}/../.."
+
+exec "${bundle}/bin/._gnuradio/run_env" "${bundle}" "${bundle}/Contents/Resources/bin/gnuradio-companion" "$@"
+EOF
+chmod 755 "${app_dir}/Contents/MacOS/GNURadio"
+
+printf 'Querying GNURadio version: '
+gnuradio_version="$( "${app_dir}/bin/gnuradio-config-info" --version)" && st="$?" || st="$?"
+if test 0 -ne "${st}" ; then
+	printf 'FAILED\n' 1>&2
+	exit 1
+else
+	printf '%s\n' "${gnuradio_version}"
+fi
+
+printf 'Writing Contents/Info.plist...\n'
+cat << EOF > "${app_dir}/Contents/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string>${gnuradio_version}, GNURadio and supporting software © by a whole bunch of folks</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© by a whole bunch of folks</string>
+	<key>CFBundleExecutable</key>
+	<string>GNURadio</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.gnuradio.gnuradio-companion</string>
+	<key>CFBundleName</key>
+	<string>GNURadio</string>
+	<key>CFBundleIconFile</key>
+	<string>GNURadio.icns</string>
+	<key>CFBundleShortVersionString</key>
+	<string>${gnuradio_version}</string>
+	<key>CFBundleVersion</key>
+	<string>${gnuradio_version}</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>NSHighResolutionCapable</key>
+	<true />
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>grc</string>
+				<string>GRC</string>
+				<string>grc.xml</string>
+				<string>GRC.XML</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>GNURadio.icns</string>
+			<key>CFBundleTypeMIMETypes</key>
+			<array>
+				<string>application/gnuradio-grc</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>GNU Radio Companion Flow Graph</string>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>GRC </string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSIsAppleDefaultForType</key>
+			<true />
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.gnuradio.grc</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.xml</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>GNU Radio Companion Flow Graph</string>
+			<key>UTTypeIconFile</key>
+			<string>GNURadio.icns</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.gnuradio.grc</string>
+			<key>UTTypeReferenceURL</key>
+			<string>http://www.gnuradio.org/</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>com.apple.ostype</key>
+				<string>GRC </string>
+				<key>public.filename-extension</key>
+				<array>
+					<string>grc</string>
+					<string>GRC</string>
+					<string>grc.xml</string>
+					<string>GRC.XML</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/gnuradio-grc</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>
+EOF
+chmod 644 "${app_dir}/Contents/Info.plist"
+
 # Minimize how much junk that the fix_* scripts will sift through.
 port_clean
 
