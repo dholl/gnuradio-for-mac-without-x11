@@ -328,6 +328,76 @@ unset -v port_names_to_install
 #	Make sure cairo is installed with the +x11 variant when installing the binary version of py27-cairo or install py27-cairo from source like so:
 #		sudo port install -s py27-cairo
 
+if ! test -f "${app_dir}/Contents/Resources/GNURadio.icns" ; then
+	printf 'Looking for Inkscape.app in /Applications or %s/Applications, or for "inkscape" in $PATH...\n' "${HOME}"
+	if test -x "${HOME}/Applications/Inkscape.app/Contents/Resources/script" ; then
+		inkscape_bin="${HOME}/Applications/Inkscape.app/Contents/Resources/script"
+	elif test -x "/Applications/Inkscape.app/Contents/Resources/script" ; then
+		inkscape_bin="/Applications/Inkscape.app/Contents/Resources/script"
+	elif command -v inkscape >/dev/null 2>&1 ; then
+		# We found inkscape in the path.
+		inkscape_bin="inkscape"
+	else
+		printf '\tUnable to find "inkscape" or "Inkscape.app/Contents/Resources/script"\n' 1>&2
+		printf '\tWill skip icon generation\n'
+		inkscape_bin=""
+	fi
+	if test -n "${inkscape_bin}" ; then
+		printf '\tTesting Inkscape at %s...\n' "${inkscape_bin}"
+		"${inkscape_bin}" --without-gui --verb-list >/dev/null 2>&1 && st="$?" || st="$?"
+		if test 0 -ne "${st}" ; then
+			printf '\tFailed test: Found nonzero exit status of %s from running %s --without-gui --verb-list\n' "${st}" "${inkscape_bin}" 1>&2
+			printf '\tWill skip icon generation\n'
+			inkscape_bin=""
+		fi
+	fi
+
+	if test -n "${inkscape_bin}" ; then
+		printf 'Generating GNURadio.icns...\n'
+		if ! test -f "${tmp_dir}/gnuradio_logo_icon-square.svg" ; then
+			printf '\tDownloading SVG artwork...\n'
+			#git clone https://github.com/gnuradio/gr-logo.git "${tmp_dir}/gr-logo.git"
+			#cp -a "${tmp_dir}/gr-logo.git/gnuradio_logo_icon-square.svg" "${tmp_dir}/gnuradio_logo_icon-square.svg"
+			#rm -rf "${tmp_dir}/gr-logo.git"
+			# Or should I just download https://github.com/gnuradio/gr-logo/raw/master/gnuradio_logo_icon-square.svg ?
+			curl --location -o "${tmp_dir}/gnuradio_logo_icon-square.svg" "https://github.com/gnuradio/gr-logo/raw/master/gnuradio_logo_icon-square.svg"
+		fi
+		#ln -s /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericDocumentIcon.icns
+		#iconutil --convert iconset GenericDocumentIcon.icns
+		#rm GenericDocumentIcon.icns
+		#file GenericDocumentIcon.iconset/*
+		#	GenericDocumentIcon.iconset/icon_16x16.png:      PNG image data, 16 x 16, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_16x16@2x.png:   PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_32x32.png:      PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_32x32@2x.png:   PNG image data, 64 x 64, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_128x128.png:    PNG image data, 128 x 128, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_128x128@2x.png: PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_256x256.png:    PNG image data, 256 x 256, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_256x256@2x.png: PNG image data, 512 x 512, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_512x512.png:    PNG image data, 512 x 512, 8-bit/color RGBA, non-interlaced
+		#	GenericDocumentIcon.iconset/icon_512x512@2x.png: PNG image data, 1024 x 1024, 8-bit/color RGBA, non-interlaced
+		#I opened each png in Preview and found they all had the same resolution of 72 DPI.
+
+		if test -e "${tmp_dir}/GNURadio.iconset" ; then
+			rm -rf "${tmp_dir}/GNURadio.iconset"
+		fi
+		mkdir "${tmp_dir}/GNURadio.iconset"
+		# From https://developer.apple.com/library/content/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html#//apple_ref/doc/uid/TP40012302-CH7-SW2
+		for px in 16 32 128 256 512 ; do
+			printf '\tGenerating icon %sx%s...\n' "${px}" "${px}"
+			"${inkscape_bin}" --without-gui --file="${tmp_dir}/gnuradio_logo_icon-square.svg" --export-area-page --export-width="${px}" --export-height="${px}" --export-png="${tmp_dir}/GNURadio.iconset/icon_${px}x${px}.png" >/dev/null
+			px2x=$((2*px))
+			printf '\tGenerating icon %sx%s@2x...\n' "${px}" "${px}"
+			"${inkscape_bin}" --without-gui --file="${tmp_dir}/gnuradio_logo_icon-square.svg" --export-area-page --export-width="${px2x}" --export-height="${px2x}" --export-png="${tmp_dir}/GNURadio.iconset/icon_${px}x${px}@2x.png" >/dev/null
+		done
+		unset -v px px2x
+		printf '\tMerging icons...\n'
+		iconutil --convert icns -o "${app_dir}/Contents/Resources/GNURadio.icns" "${tmp_dir}/GNURadio.iconset"
+		rm -r "${tmp_dir}/GNURadio.iconset"
+	fi
+	unset -v inkscape_bin
+fi
+
 mkdir -p "${app_dir}/bin/._gnuradio"
 cat << 'EOF' > "${app_dir}/bin/._gnuradio/ln_helper"
 #!/bin/sh
