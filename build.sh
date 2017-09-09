@@ -398,6 +398,19 @@ if ! test -f "${app_dir}/Contents/Resources/GNURadio.icns" ; then
 	unset -v inkscape_bin
 fi
 
+pkg_config () {
+	PATH="${app_dir}/Contents/Resources/bin:$PATH" env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR "${app_dir}/Contents/Resources/bin/pkg-config" "$@"
+}
+
+errexit () {
+	printf "$@" 1>&2
+	exit 1
+}
+
+normpath() {
+	python -c 'import sys, path_tools ; print path_tools.safe_normpath(sys.argv[1], stat_test=False)' "$1"
+}
+
 mkdir -p "${app_dir}/bin/._gnuradio"
 cat << 'EOF' > "${app_dir}/bin/._gnuradio/ln_helper"
 #!/bin/sh
@@ -424,6 +437,85 @@ exe_file="${1}"
 shift
 
 export PATH="${bundle}/Contents/Resources/bin:${PATH}"
+# Using PKG_CONFIG_LIBDIR instead of PKG_CONFIG_PATH, because our pkg-config's
+# default path is hard-coded to our compile-time INSTALL_DIR and may not match
+# where the user has copied GNURadio.app.  Either way, our custom-compiled
+# pkg-config will not be looking for packages elsewhere, unless the user
+# specifies PKG_CONFIG_PATH.
+EOFQ
+#-----------------------------------------------------
+# Make our pkg-config relocatable:
+pc_path="$(pkg_config pkg-config --variable=pc_path)" || errexit 'Failed querying pc_path.  Exit status %s\n' "$?"
+#pc_path='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig:/Applications/GNURadio.app/Contents/Resources/share/pkgconfig'
+pc_path="$(python -c 'import sys ; print sys.argv[1].replace(":/Applications/GNURadio.app/", ":${bundle}/")' ":${pc_path}")" || errexit 'Failed pruning pc_path.  Exit status %s\n' "$?"
+#pc_path=':${bundle}/Contents/Resources/lib/pkgconfig:${bundle}/Contents/Resources/share/pkgconfig'
+pc_path="${pc_path#:}" # remove leading :
+#pc_path='${bundle}/Contents/Resources/lib/pkgconfig:${bundle}/Contents/Resources/share/pkgconfig'
+printf 'export PKG_CONFIG_LIBDIR="%s"\n' "${pc_path}" >> "${app_dir}/bin/._gnuradio/run_env"
+unset -v pc_path
+#-----------------------------------------------------
+# Make our swig relocatable:
+swig_lib="$("${app_dir}/Contents/Resources/bin/swig" -swiglib)" || errexit 'Failed querying swig_lib.  Exit status %s\n' "$?"
+#swig_lib='/Applications/GNURadio.app/Contents/Resources/share/swig/3.0.12'
+test -z "${swig_lib##"${app_dir}"/*}" || errexit 'Detected swig_lib is not under app_dir.  swig_lib=%s\n' "${swig_lib}"
+printf 'export SWIG_LIB="${bundle}/%s"\n' "${swig_lib#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+unset -v swig_lib
+#-----------------------------------------------------
+gdk_pixbuf_cache_file="$(pkg_config gdk-pixbuf-2.0 --variable=gdk_pixbuf_cache_file)" || errexit 'Failed querying gdk_pixbuf_cache_file.  Exit status %s\n' "$?"
+#gdk_pixbuf_cache_file='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig/../../../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache'
+gdk_pixbuf_cache_file="$(normpath "${gdk_pixbuf_cache_file}")" || errexit 'Failed normpath gdk_pixbuf_cache_file.  Exit status %s\n' "$?"
+#gdk_pixbuf_cache_file='/Applications/GNURadio.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache'
+test -z "${gdk_pixbuf_cache_file##"${app_dir}"/*}" || errexit 'Detected gdk_pixbuf_cache_file is not under app_dir.  gdk_pixbuf_cache_file=%s\n' "${gdk_pixbuf_cache_file}"
+printf 'export GDK_PIXBUF_MODULE_FILE="${bundle}/%s"\n' "${gdk_pixbuf_cache_file#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+# Now make useless etc/gtk-2.0/... symbolic link:
+test -f "${gdk_pixbuf_cache_file}" -a '!' -L "${gdk_pixbuf_cache_file}" || errexit 'gdk_pixbuf_cache_file is either missing or not a regular file: %s\n' "${gdk_pixbuf_cache_file}"
+test '!' -e "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" || rm "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
+ln -s "${gdk_pixbuf_cache_file}" "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
+# Make cache relocatable: # TODO How to we test this worked?
+sed -i .orig -e "s|${app_dir}/Contents/Resources|@loader_path/..|g" "${gdk_pixbuf_cache_file}"
+rm "${gdk_pixbuf_cache_file}.orig"
+unset -v gdk_pixbuf_cache_file
+#-----------------------------------------------------
+gdk_pixbuf_moduledir="$(pkg_config gdk-pixbuf-2.0 --variable=gdk_pixbuf_moduledir)" || errexit 'Failed querying gdk_pixbuf_moduledir.  Exit status %s\n' "$?"
+#gdk_pixbuf_moduledir='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig/../../../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders'
+gdk_pixbuf_moduledir="$(normpath "${gdk_pixbuf_moduledir}")" || errexit 'Failed normpath gdk_pixbuf_moduledir.  Exit status %s\n' "$?"
+test -z "${gdk_pixbuf_moduledir##"${app_dir}"/*}" || errexit 'Detected gdk_pixbuf_moduledir is not under app_dir.  gdk_pixbuf_moduledir=%s\n' "${gdk_pixbuf_moduledir}"
+printf 'export GDK_PIXBUF_MODULEDIR="${bundle}/%s"\n' "${gdk_pixbuf_moduledir#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+unset -v gdk_pixbuf_moduledir
+#-----------------------------------------------------
+gtk_binary_version="$(pkg_config gtk+-2.0 --variable=gtk_binary_version)" || errexit 'Failed querying gtk_binary_version.  Exit status %s\n' "$?"
+gtk_libdir="$(pkg_config gtk+-2.0 --variable=libdir)" || errexit 'Failed querying gtk_libdir.  Exit status %s\n' "$?"
+gtk_im_module_file="${gtk_libdir}/gtk-2.0/${gtk_binary_version}/immodules.cache" # emulate logic from gtk+-2.24.31/gtk/gtkrc.c
+#gtk_im_module_file='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig/../../../Resources/lib/gtk-2.0/2.10.0/immodules.cache'
+gtk_im_module_file="$(normpath "${gtk_im_module_file}")" || errexit 'Failed normpath gtk_im_module_file.  Exit status %s\n' "$?"
+test -z "${gtk_im_module_file##"${app_dir}"/*}" || errexit 'Detected gtk_im_module_file is not under app_dir.  gtk_im_module_file=%s\n' "${gtk_im_module_file}"
+printf 'export GTK_IM_MODULE_FILE="${bundle}/%s"\n' "${gtk_im_module_file#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+# Now make useless etc/gtk-2.0/... symbolic link:
+test -f "${gtk_im_module_file}" -a '!' -L "${gtk_im_module_file}" || errexit 'gtk_im_module_file is either missing or not a regular file: %s\n' "${gtk_im_module_file}"
+test '!' -e "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" || rm "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
+ln -s "${gtk_im_module_file}" "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
+# Make cache relocatable: # TODO How to we test this worked?
+sed -i .orig -e "s|${app_dir}/Contents/Resources|@loader_path/..|g" "${gtk_im_module_file}"
+rm "${gtk_im_module_file}.orig"
+unset -v gtk_im_module_file
+#-----------------------------------------------------
+### Do I need all this for Glade?
+###glade_moduledir="$(pkg_config libglade-2.0 --variable moduledir)" || errexit 'Failed querying glade_moduledir.  Exit status %s\n' "$?"
+####glade_moduledir='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig/../../../Resources/lib/libglade/2.0'
+###glade_moduledir="$(normpath "${glade_moduledir}")" || errexit 'Failed normpath glade_moduledir.  Exit status %s\n' "$?"
+###test -z "${glade_moduledir##"${app_dir}"/*}" || errexit 'Detected glade_moduledir is not under app_dir.  glade_moduledir=%s\n' "${glade_moduledir}"
+###printf 'export LIBGLADE_MODULE_PATH="${bundle}/%s"\n' "${glade_moduledir#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+### This looks much simpler:  From get_module_path func in https://sourcecodebrowser.com/libglade2/2.6.0/glade-init_8c_source.html#l00172
+printf 'export LIBGLADE_EXE_PREFIX="${bundle}/Contents/Resources"\n' >> "${app_dir}/bin/._gnuradio/run_env"
+#-----------------------------------------------------
+giomoduledir="$(pkg_config gio-2.0 --variable=giomoduledir)" || errexit 'Failed querying giomoduledir.  Exit status %s\n' "$?"
+#giomoduledir='/Applications/GNURadio.app/Contents/Resources/lib/pkgconfig/../../../Resources/lib/gio/modules'
+giomoduledir="$(normpath "${giomoduledir}")" || errexit 'Failed normpath giomoduledir.  Exit status %s\n' "$?"
+test -z "${giomoduledir##"${app_dir}"/*}" || errexit 'Detected giomoduledir is not under app_dir.  giomoduledir=%s\n' "${giomoduledir}"
+printf 'export GIO_MODULE_DIR="${bundle}/%s"\n' "${giomoduledir#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
+unset -v giomoduledir
+#-----------------------------------------------------
+cat << 'EOFQ' >> "${app_dir}/bin/._gnuradio/run_env"
 
 # D.Holl - I following GIMP.app as a guide, but deviated often at my discretion as I read through the docs of each underlying library:
 # Specify installed prefix AND exec_prefix
@@ -450,6 +542,7 @@ export XDG_DATA_DIRS="${bundle}/Contents/Resources/share" # D.Holl TODO: If I ha
 # GTK_* vars described at: https://developer.gnome.org/gtk2/stable/gtk-running.html
 export GTK_DATA_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
 export GTK_EXE_PREFIX="${bundle}/Contents/Resources" # D.Holl vetted from https://developer.gnome.org/gtk2/stable/gtk-running.html
+export GNOME_PREFIX="${bundle}/Contents/Resources" # D.Holl We don't have Gnome  stuff at the moment, but this shouldn't hurt right?  From http://cblfs.clfs.org/index.php/Gnome_Pre-Installation_Configuration
 unset -v GTK_PATH # D.Holl best guess since GTK_EXE_PREFIX controls system default search path.  GIMP uses "${bundle}/Contents/Resources"
 unset -v GTK2_MODULES # D.Holl best guess.
 unset -v GTK_MODULES # D.Holl best guess.
@@ -457,9 +550,6 @@ unset -v GTK_IM_MODULE # D.Holl best guess.
 
 # Set up generic configuration
 export GTK2_RC_FILES="${bundle}/Contents/Resources/share/themes/Mac/gtk-2.0-key/gtkrc" # D.Holl - I took a guess at this.  But GIMP uses: ".../Contents/Resources/etc/gtk-2.0/gtkrc"
-export GTK_IM_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
-export GDK_PIXBUF_MODULE_FILE="${bundle}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
-export GDK_PIXBUF_MODULEDIR="${bundle}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders"
 
 # TODO Verify XDG_DATA_HOME and XDG_DATA_DIRS as needed by https://developer.gnome.org/gtk2/stable/gtk-running.html
 
@@ -722,40 +812,6 @@ if test -e "${app_dir}/Contents/Resources/var/cache/fontconfig" ; then
 	# We're not keeping a writable cache directory within the bundle:
 	rm -r "${app_dir}/Contents/Resources/var/cache/fontconfig"
 fi
-
-# Replace "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" with symlink to "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
-if test -L "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" ; then
-	# For paranoia, make sure we're about to point a symbolic link to a regular file to avoid pointing to a symlink that points back circularly:
-	printf '%s is a symbolic link!\n' 1>&2
-	exit 1
-fi
-if test -e "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" ; then
-	if ! test "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache" -ef "${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules" ; then
-		rm "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
-		ln -s "../../../etc/gtk-2.0/gtk.immodules" "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
-	fi
-else
-	ln -s "../../../etc/gtk-2.0/gtk.immodules" "${app_dir}/Contents/Resources/lib/gtk-2.0/2.10.0/immodules.cache"
-fi
-# Replace "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" with symlink to "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
-if test -L "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" ; then
-	# For paranoia, make sure we're about to point a symbolic link to a regular file to avoid pointing to a symlink that points back circularly:
-	printf '%s is a symbolic link!\n' 1>&2
-	exit 1
-fi
-if test -e "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" ; then
-	if ! test "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" -ef "${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders" ; then
-		rm "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-		ln -s "../../../etc/gtk-2.0/gdk-pixbuf.loaders" "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-	fi
-else
-	ln -s "../../../etc/gtk-2.0/gdk-pixbuf.loaders" "${app_dir}/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-fi
-
-# TODO: Make files relocatable:
-#	"${app_dir}/Contents/Resources/etc/gtk-2.0/gtk.immodules"
-#	"${app_dir}/Contents/Resources/etc/gtk-2.0/gdk-pixbuf.loaders"
-
 
 # For this execution of fix_pkg_config, use env to ensure we don't accidentally
 # get any packages outside of the defaults included in the pkg-config we just
