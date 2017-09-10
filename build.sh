@@ -82,6 +82,11 @@ fi
 # to your PATH and run:
 # sudo port -v selfupdate
 
+# In case we're updating an existing bundle, we'll need to export
+# GNURADIO_APP_DIR because all the scripts may have been rewritten to remove
+# the hard-coded path:
+export GNURADIO_APP_DIR="${app_dir}"
+
 # My idea: Naw, I won't mess up PATH for this, just to see if anything breaks.
 #export PATH="${app_dir}/Contents/Resources/bin:$PATH"
 # Instead, we'll define our own port function to only tweak PATH as needed:
@@ -437,6 +442,7 @@ exe_file="${1}"
 shift
 
 export PATH="${bundle}/Contents/Resources/bin:${PATH}"
+export GNURADIO_APP_DIR="${bundle}" # D.Holl support relocating shell scripts having hard-coded #!interpreters within GNURadio.app
 # Using PKG_CONFIG_LIBDIR instead of PKG_CONFIG_PATH, because our pkg-config's
 # default path is hard-coded to our compile-time INSTALL_DIR and may not match
 # where the user has copied GNURadio.app.  Either way, our custom-compiled
@@ -823,14 +829,20 @@ env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
 # TODO:
 # "${main_src_dir}/fix_library_references" "${app_dir}/Contents"
 
-# TODO:
-# "${main_src_dir}/fix_script_references" "${app_dir}/Contents"
+printf 'Making shell scripts relocatable...\n'
 #zero(ttys000):...-without-x11> find /Applications/GNURadio.app -type f -perm +0111 -print0 | xargs -0 grep '^#!/Appl' | cut -d: -f2- | sort | uniq -c
 #  42 #!/Applications/GNURadio.app/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python
 # 174 #!/Applications/GNURadio.app/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/bin/python2.7
 #  31 #!/Applications/GNURadio.app/Contents/Resources/bin/perl5.24
 #   3 #!/Applications/GNURadio.app/Contents/Resources/bin/python2.7
 #   3 #!/Applications/GNURadio.app/Contents/Resources/libexec/macports/bin/tclsh8.5
+"${main_src_dir}/fix_script_references" "${app_dir}" GNURADIO_APP_DIR "${app_dir}/Contents/Resources"
+#zero(ttys001):...-without-x11> find /Applications/GNURadio.app -type f -perm +0111 -print0 | xargs -0 grep '^#!/.*GNURADIO_APP_DIR' | cut -d: -f2- | sort | uniq -c
+#  42 #!/usr/bin/env -S${GNURADIO_APP_DIR}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python
+# 174 #!/usr/bin/env -S${GNURADIO_APP_DIR}/Contents/Resources/Library/Frameworks/Python.framework/Versions/2.7/bin/python2.7
+#  31 #!/usr/bin/env -S${GNURADIO_APP_DIR}/Contents/Resources/bin/perl5.24
+#   3 #!/usr/bin/env -S${GNURADIO_APP_DIR}/Contents/Resources/bin/python2.7
+#   3 #!/usr/bin/env -S${GNURADIO_APP_DIR}/Contents/Resources/libexec/macports/bin/tclsh8.5
 
 #if test -n "${extra_port_names}" ; then
 #	# We don't need this any more:
