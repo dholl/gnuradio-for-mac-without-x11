@@ -613,7 +613,7 @@ for tmpfile in "${FONTCONFIG_FILE%/*}/.gnuradio-fontconfig-$(id -u)-"* ; do
 done
 unset -v tmpfile
 export FONTCONFIG_PATH="${bundle}/Contents/Resources/etc/fonts" # D.Holl best guess.
-export FC_DEBUG=1024 # D.Holl - Verify that fontconfig is looking in the right places, and then remove this.
+export FC_DEBUG=1024 # D.Holl - TODO Verify that fontconfig is looking in the right places, and then remove this.
 
 # Include GEGL path
 # D.Holl unused for GNURadio? export GEGL_PATH="${bundle}/Contents/Resources/lib/gegl-0.2"
