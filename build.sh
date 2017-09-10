@@ -873,8 +873,9 @@ printf 'Making pkg-config (.pc) files relocatable...\n'
 env -u PKG_CONFIG_PATH -u PKG_CONFIG_LIBDIR \
 	"${main_src_dir}/fix_pkg_config" "${app_dir}/Contents" "${app_dir}/Contents/Resources/bin/pkg-config"
 
-# TODO:
-# "${main_src_dir}/fix_library_references" "${app_dir}/Contents"
+# TODO: Switch to script based on python macholib
+printf 'Making library references relocatable...\n'
+"${main_src_dir}/fix_library_references" "${app_dir}/Contents"
 
 printf 'Making shell scripts relocatable...\n'
 #zero(ttys000):...-without-x11> find /Applications/GNURadio.app -type f -perm +0111 -print0 | xargs -0 grep '^#!/Appl' | cut -d: -f2- | sort | uniq -c
