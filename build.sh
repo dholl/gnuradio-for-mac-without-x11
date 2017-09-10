@@ -444,6 +444,11 @@ shift
 
 export PATH="${bundle}/Contents/Resources/bin:${PATH}"
 export GNURADIO_APP_DIR="${bundle}" # D.Holl support relocating shell scripts having hard-coded #!interpreters within GNURadio.app
+export GR_PREFIX="${bundle}/Contents/Resources"
+# TODO: Should I remove GRC_BLOCKS_PATH which seems redundant? (when GR_CONF_GRC_GLOBAL_BLOCKS_PATH gets set below with other GR_CONF_*)
+#export GRC_BLOCKS_PATH="${GRC_BLOCKS_PATH-""}${GRC_BLOCKS_PATH+":"}${bundle}/Contents/Resources/share/gnuradio/grc/blocks"
+export VOLK_PREFIX="${bundle}/Contents/Resources"
+export CMAKE_PREFIX_PATH="${bundle}/Contents/Resources${CMAKE_PREFIX_PATH+":"}${CMAKE_PREFIX_PATH-""}" # https://gnuradio.org/doc/doxygen-3.7.3/
 # Using PKG_CONFIG_LIBDIR instead of PKG_CONFIG_PATH, because our pkg-config's
 # default path is hard-coded to our compile-time INSTALL_DIR and may not match
 # where the user has copied GNURadio.app.  Either way, our custom-compiled
@@ -521,6 +526,47 @@ giomoduledir="$(normpath "${giomoduledir}")" || errexit 'Failed normpath giomodu
 test -z "${giomoduledir##"${app_dir}"/*}" || errexit 'Detected giomoduledir is not under app_dir.  giomoduledir=%s\n' "${giomoduledir}"
 printf 'export GIO_MODULE_DIR="${bundle}/%s"\n' "${giomoduledir#"${app_dir}"/}" >> "${app_dir}/bin/._gnuradio/run_env"
 unset -v giomoduledir
+#-----------------------------------------------------
+# Override hard-coded paths in .../Contents/Resources/etc/gnuradio/conf.d via
+# environment variables of the form GR_CONF_{SECTION}_{SETTING}={VALUE} as
+# described in https://gnuradio.org/doc/doxygen-v3.7.10.1/page_prefs.html#prefs
+gnuradio_prefsdir="$(GR_PREFIX="${app_dir}/Contents/Resources" "${app_dir}/Contents/Resources/bin/gnuradio-config-info" --prefsdir)" || errexit 'Failed querying gnuradio_prefsdir.  Exit status %s\n' "$?"
+#gnuradio_prefsdir='/Applications/GNURadio.app/Contents/Resources/etc/gnuradio/conf.d'
+find "${gnuradio_prefsdir}" \
+	-mindepth 1 \
+	-type f \
+	-name '*.conf' \
+	-exec grep -q '=[[:space:]]*'"${app_dir}"'/' '{}' ';' \
+	-exec sed -i .orig -E -e "s|^([^=]*=[[:space:]]*)${app_dir}/Contents/Resources/|\1"'${GR_PREFIX}/'"|g" '{}' ';'
+unset -v gnuradio_prefsdir
+# We're also going to force expand ${GR_PREFIX} within "${app_dir}/bin/._gnuradio/run_env" here:
+GR_PREFIX="${app_dir}/Contents/Resources" "${app_dir}/Contents/Resources/bin/gnuradio-config-info" --prefs \
+	| awk \
+	-v old_prefix='${GR_PREFIX}/' \
+	-v new_prefix='"${GR_PREFIX}/"' \
+	'\
+/^\[.*\]/ {
+	sub("^\\[", "");
+	sub("].*$", "");
+	section=toupper($0);
+	next;
+}
+
+/^[[:space:]]*$/ {
+	next;
+}
+
+/=/ {
+	setting=toupper($0);
+	value=$0;
+	sub("[[:space:]]*=.*$", "", setting);
+	sub("^[^=]*=[[:space:]]*", "", value);
+	if (substr(value, 1, length(old_prefix))!=old_prefix)
+		next;
+	value=substr(value, length(old_prefix)+1, length(value)-length(old_prefix));
+	printf("export GR_CONF_%s_%s=%s'"'"'%s'"'"'\n", section, setting, new_prefix, value)
+}
+' >> "${app_dir}/bin/._gnuradio/run_env"
 #-----------------------------------------------------
 cat << 'EOFQ' >> "${app_dir}/bin/._gnuradio/run_env"
 
