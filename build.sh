@@ -426,7 +426,8 @@ set -u
 test -z "${0##/*}" && argv0_path="$0" || argv0_path="$PWD/$0"
 script_dir="${argv0_path%/*}"
 
-bundle="${script_dir}/.."
+# If script_dir ends with .../bin then strip the trailing /bin, else just append ..
+test -z "${script_dir%%*/bin}" && bundle="${script_dir%/bin}" || bundle="${script_dir}/.."
 
 exec "${script_dir}/._gnuradio/run_env" "${bundle}" "${bundle}/Contents/Resources/bin/${0##*/}" "$@"
 EOF
